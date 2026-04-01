@@ -71,17 +71,17 @@ OVERPASS_TIMEOUT = 180   # seconds; raise if queries time out on slow connection
 # When credentials are absent they return a safe placeholder — no crash, no data loss.
 LAYERS = {
     # ── Group 1: Geo Layers — run via scout.py ─────────────────────────────────
-    "satellite_neglect":   True,   # Sentinel Hub NDVI vigor delta — free 30-day trial
-    "permit_paralysis":    True,   # Albo Pretorio stalled permits — PAID FEATURE
-    "zoning_alchemy":      True,   # Zone E WFS check (free) + permit keywords (PAID)
-    "napa_neighbor":       True,   # LVMH/Antinori proximity ripple — free, hardcoded
+    "satellite_neglect":   False,  # TEMP DEMO OFF — Sentinel Hub OAuth too slow without credentials
+    "permit_paralysis":    False,  # PAID FEATURE — no key configured
+    "zoning_alchemy":      False,  # PAID FEATURE — no key configured
+    "napa_neighbor":       True,   # LVMH/Antinori proximity ripple — free, hardcoded math, instant
     # ── Group 2: Brand / Sentiment Layers — run via sentiment.py ──────────────
-    "hospitality_fatigue": True,   # TripAdvisor review velocity — PAID FEATURE
-    "digital_ghost":       True,   # WHOIS + Wayback CDX web decay — free
-    "terroir_score_delta": True,   # Soil quality vs critic scores — PAID FEATURE
+    "hospitality_fatigue": False,  # PAID FEATURE — no key configured
+    "digital_ghost":       False,  # TEMP DEMO OFF — WHOIS + Wayback per parcel too slow for demo
+    "terroir_score_delta": False,  # PAID FEATURE — no key configured
     # ── Group 3: Legal Layers — run via acquisitions.py ───────────────────────
-    "succession_frag":     True,   # Co-owner count via OpenAPI.it Catasto — PAID FEATURE
-    "owner_relocation":    True,   # Fiscal code decode (free) + cadastral address (PAID)
+    "succession_frag":     False,  # PAID FEATURE — no key configured
+    "owner_relocation":    False,  # PAID FEATURE — no key configured
 }
 
 # ─── Layer credentials ────────────────────────────────────────────────────────

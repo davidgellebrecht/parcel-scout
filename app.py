@@ -303,6 +303,30 @@ hr {
 
 /* ── Dataframe ── */
 .stDataFrame { border: 1px solid #D4C4A0 !important; }
+
+/* ── Status widget (scan progress) ── */
+[data-testid="stStatusWidget"] {
+    background-color: #2A2118 !important;
+}
+[data-testid="stStatusWidget"] p,
+[data-testid="stStatusWidget"] span,
+[data-testid="stStatusWidget"] div {
+    color: #F4EFE6 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+    opacity: 1 !important;
+}
+/* Status expanded body */
+[data-testid="stStatusWidget"] > div:last-child {
+    background-color: #FAF6EF !important;
+    border: 1px solid #D4C4A0 !important;
+    padding: 0.8rem 1rem !important;
+}
+[data-testid="stStatusWidget"] > div:last-child p,
+[data-testid="stStatusWidget"] > div:last-child span {
+    color: #2A2118 !important;
+    font-size: 0.75rem !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -565,6 +589,7 @@ def run_full_scan(filter_state: dict, g2_state: dict, layer_state: dict) -> list
 
     st.session_state.scan_log.append("Querying OpenStreetMap for agricultural parcels…")
     raw = fetch_agricultural_parcels() if filter_state["agricultural_land"] else fetch_broad_landuse()
+    st.session_state.total_raw = len(raw)
     st.session_state.scan_log.append(f"  → {len(raw):,} raw OSM element(s) retrieved")
 
     distress_elements = []
@@ -914,14 +939,18 @@ if run_btn:
         st.session_state.scan_time    = datetime.now()
         st.session_state.scan_elapsed = elapsed
 
+        total_raw = st.session_state.get("total_raw", 0)
         if parcels:
             scan_status.update(
-                label=f"Scan complete — {len(parcels)} parcel(s) found in {elapsed:.0f}s",
+                label=(
+                    f"Scan complete — scanned {total_raw:,} parcels in {config.REGION}, "
+                    f"found {len(parcels)} matching your filters  ({elapsed:.0f}s)"
+                ),
                 state="complete",
             )
         else:
             scan_status.update(
-                label="Scan complete — no parcels passed all hard filters",
+                label=f"Scan complete — scanned {total_raw:,} parcels, none passed all hard filters",
                 state="error",
             )
 
@@ -951,12 +980,18 @@ else:
     parcels = rescore(st.session_state.parcels, active_keys)
 
     # ── Summary metrics ───────────────────────────────────────────────────────
-    scores = [p["opportunity_score"] for p in parcels]
+    scores    = [p["opportunity_score"] for p in parcels]
+    total_raw = st.session_state.get("total_raw", 0)
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Parcels Found",   len(parcels))
-    m2.metric("Top Score",       f"{max(scores):.1f}/100")
-    m3.metric("Average Score",   f"{sum(scores)/len(scores):.1f}/100")
-    m4.metric("Signals Active",  f"{len(active_keys)}/13")
+    m1.metric("Parcels Matched",  len(parcels), help=f"{total_raw:,} total parcels scanned")
+    m2.metric("Top Score",        f"{max(scores):.1f}/100")
+    m3.metric("Average Score",    f"{sum(scores)/len(scores):.1f}/100")
+    m4.metric("Signals Active",   f"{len(active_keys)}/13")
+    if total_raw:
+        st.caption(
+            f"Scanned **{total_raw:,}** total parcels in {st.session_state.get('scan_region', config.REGION)}"
+            f" — **{len(parcels)}** matched all required filters."
+        )
 
     st.markdown("---")
 
@@ -998,7 +1033,7 @@ else:
 
         styled = (
             df_display.style
-            .applymap(color_score, subset=["Score"])
+            .map(color_score, subset=["Score"])
             .format({"Score": "{:.1f}"})
             .hide(axis="index")
         )
