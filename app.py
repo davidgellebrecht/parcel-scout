@@ -240,6 +240,22 @@ hr {
     color: #2A2118 !important;
 }
 
+/* ── Warning box ── */
+.stWarning, [data-testid="stAlert"][kind="warning"] {
+    background-color: #FFF176 !important;
+    border: 1px solid #F9A825 !important;
+    border-radius: 0 !important;
+    color: #1A1200 !important;
+}
+.stWarning p, .stWarning li, .stWarning strong,
+[data-testid="stAlert"][kind="warning"] p,
+[data-testid="stAlert"][kind="warning"] li,
+[data-testid="stAlert"][kind="warning"] strong {
+    color: #1A1200 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+}
+
 /* ── Expanders ── */
 .streamlit-expanderHeader {
     font-family: 'Montserrat', sans-serif !important;
