@@ -670,18 +670,35 @@ st.markdown("---")
 st.markdown('<span class="gb-label">Acquisition Layers</span>', unsafe_allow_html=True)
 st.caption("Toggle layers to adjust the Opportunity Score in real time.")
 
-layer_signals = [sm for sm in SIGNAL_META if sm["group"] == "layer"]
-lc1, lc2, lc3 = st.columns(3)
-layer_state    = {}
-for i, sm in enumerate(layer_signals):
+free_layers = [sm for sm in SIGNAL_META if sm["group"] == "layer" and not sm["paid"]]
+paid_layers = [sm for sm in SIGNAL_META if sm["group"] == "layer" and sm["paid"]]
+layer_state = {}
+
+# Free layers
+fl1, fl2, fl3 = st.columns(3)
+for i, sm in enumerate(free_layers):
     group, cfg_key = sm["config"]
-    col   = [lc1, lc2, lc3][i % 3]
-    badge = sm.get("badge", "")
-    label = f"{sm['label']}" + (f"  [{badge}]" if badge else "")
+    col = [fl1, fl2, fl3][i % 3]
     with col:
         layer_state[cfg_key] = st.checkbox(
-            label,
-            value=getattr(config, group).get(cfg_key, True),
+            sm["label"],
+            value=True,
+            key=f"layer_{sm['key']}",
+        )
+        st.caption(sm["desc"])
+
+# Paid layers
+st.markdown('<span class="gb-label" style="margin-top:1.2rem;">Premium Layers</span>', unsafe_allow_html=True)
+st.caption("Require a paid API subscription. Toggled off by default — enable when credentials are configured.")
+
+pl1, pl2, pl3 = st.columns(3)
+for i, sm in enumerate(paid_layers):
+    group, cfg_key = sm["config"]
+    col = [pl1, pl2, pl3][i % 3]
+    with col:
+        layer_state[cfg_key] = st.checkbox(
+            sm["label"],
+            value=False,
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
