@@ -155,9 +155,9 @@ hr {
 }
 
 /* ── Expander header ── */
-/* Target only the text paragraph, NOT the icon span (which uses Material Icons font) */
-.streamlit-expanderHeader,
-[data-testid="stExpander"] summary,
+/* Target ONLY the text paragraph — NOT summary itself or any span.
+   Setting font-family on <summary> or <span> would override the Material Icons
+   font on the arrow glyph, causing it to render as "_arro" literal text. */
 [data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
@@ -294,14 +294,6 @@ hr {
     font-size: 0.78rem !important;
 }
 
-/* ── Expanders ── */
-.streamlit-expanderHeader {
-    font-family: 'Montserrat', sans-serif !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    color: #2A2118 !important;
-    letter-spacing: 0.04em !important;
-}
 
 /* ── Hero image strip ── */
 [data-testid="stImage"] img {
@@ -734,8 +726,8 @@ def build_rankings_df(parcels: list) -> pd.DataFrame:
             "Signals":    f"{p.get('signals_fired',0)}/{len(ALL_SIGNAL_KEYS)}",
             "Fired":      " · ".join(fired) if fired else "—",
             "Crop":       p.get("primary_crop_type", "").title(),
-            "Acres":      round(p.get("parcel_acres", 0), 1),
-            "Airport":    f"{p.get('dist_airport_km',0):.1f} km ({p.get('airport_iata','')})",
+            "Acres":      int(round(p.get("parcel_acres", 0))),
+            "Airport":    f"{p.get('dist_airport_km',0):.0f} km ({p.get('airport_iata','')})",
             "Heritage":   f"{p.get('closest_historic_tag','').title()} ({p.get('heritage_confidence','')})",
             "Name / GPS": p.get("name") or p.get("gps_coordinates", ""),
             "OSM URL":    p.get("osm_url", ""),
@@ -1117,12 +1109,27 @@ else:
 
             with st.expander(f"#{rank}  {name[:55]}  —  {score:.1f}/100", expanded=(rank == 1)):
                 dc1, dc2, dc3 = st.columns(3)
-                dc1.metric("Opportunity Score", f"{score:.1f}/100")
-                dc1.metric("Crop Type",         p.get("primary_crop_type", "").title())
-                dc2.metric("Parcel Size",        f"{p.get('parcel_acres',0):.1f} acres")
-                dc2.metric("Airport",            f"{p.get('dist_airport_km',0):.1f} km ({p.get('airport_iata','')})")
-                dc3.metric("Heritage",           p.get("closest_historic_tag", "").title() or "N/A")
-                dc3.metric("Confidence",         p.get("heritage_confidence", "").title() or "N/A")
+                dc1.metric("Opportunity Score", f"{score:.1f}/100",
+                    help="0–100 score: each of the 13 signals is worth ~7.7 pts. "
+                         "Only signals that are enabled and have credentials configured count toward the total.")
+                dc1.metric("Crop Type", p.get("primary_crop_type", "").title(),
+                    help="Primary land-use type from OpenStreetMap tags "
+                         "(vineyard, olive grove, orchard, farmland, etc.).")
+                dc2.metric("Parcel Size", f"{p.get('parcel_acres',0):.0f} acres",
+                    help="Parcel area in acres, calculated from the OSM polygon geometry.")
+                dc2.metric("Airport", f"{p.get('dist_airport_km',0):.0f} km ({p.get('airport_iata','')})",
+                    help="Straight-line distance to the nearest target airport (Pisa PSA or Florence FLR). "
+                         "Hard filter: parcels beyond ~70 km straight-line are excluded from results.")
+                dc3.metric("Heritage", p.get("closest_historic_tag", "").title() or "N/A",
+                    help="Type of historic structure physically inside the parcel boundary — "
+                         "castle, chapel, villa, farmhouse, ruins, etc. "
+                         "Parcels whose only historic feature is a non-renovatable marker "
+                         "(memorial, milestone, wayside cross) are excluded.")
+                dc3.metric("Confidence", p.get("heritage_confidence", "").title() or "N/A",
+                    help="How specifically the structure is tagged in OpenStreetMap:\n"
+                         "• High — named type (chapel, villa, farmhouse, castle…)\n"
+                         "• Medium — structure exists but type uncertain (ruins, building)\n"
+                         "• Low — tagged 'historic=yes' only, mapper confirmed something is there but didn't specify what")
 
                 st.markdown("**Signals fired:**")
                 if fired:
