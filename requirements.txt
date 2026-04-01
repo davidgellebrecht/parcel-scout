@@ -1,0 +1,14 @@
+requests>=2.31.0
+
+# ── 9-Layer Acquisition Engine ────────────────────────────────────────────────
+# Layer 1 — Satellite Neglect Index (Sentinel Hub NDVI)
+sentinelhub>=3.9.0
+
+# Layer 6 — Digital Ghosting Index (WHOIS domain expiry check)
+python-whois>=0.9.0
+
+# Layer 3 — Zoning Alchemy (Regione Toscana GEOscopio WFS)
+# owslib>=0.29.0   # optional: uncomment if you want OWS protocol helpers
+
+# Geospatial utilities (used by napa_neighbor proximity calculations)
+# geopy>=2.4.0     # optional: uncomment if you replace haversine with geopy

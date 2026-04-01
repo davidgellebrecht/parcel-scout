@@ -1,0 +1,99 @@
+# ─── Parcel Scout — Configuration ────────────────────────────────────────────
+# Toggle each filter True (on) or False (off).
+# All enabled filters are applied as AND conditions.
+
+FILTERS = {
+    "proximity_to_airport":   True,   # parcel centroid within AIRPORT_MAX_DRIVE_MINS drive
+    "agricultural_land":      True,   # vineyard or olive orchard
+    "min_square_footage":     True,   # total land parcel area (way/relation geometry) >= MIN_AREA_SQFT
+    "historical_designation": True,   # historic building/site must be physically ON the parcel (point-in-polygon)
+}
+
+# ─── Region ───────────────────────────────────────────────────────────────────
+REGION = "Province of Siena, Italy"
+# Bounding box: (south_lat, west_lon, north_lat, east_lon)
+# Province of Siena only — ~1/9th the area of Tuscany, keeps Overpass queries fast
+REGION_BBOX = (42.63, 10.90, 43.52, 11.93)
+
+# ─── Thresholds ───────────────────────────────────────────────────────────────
+AIRPORT_MAX_DRIVE_MINS   = 60      # minutes
+AIRPORT_AVG_SPEED_KMH    = 70      # assumed average road speed (km/h)
+MIN_AREA_SQFT            = 20_000  # square feet
+# Target airports: parcel must be within AIRPORT_MAX_KM of at least one.
+# Hardcoded to avoid an extra Overpass round-trip for two well-known fixed points.
+TARGET_AIRPORTS = {
+    "PSA": {"name": "Pisa Galileo Galilei",    "lat": 43.6839, "lon": 10.3927},
+    "FLR": {"name": "Florence Peretola",        "lat": 43.8099, "lon": 11.2051},
+}
+
+# ─── Derived constants (do not edit) ──────────────────────────────────────────
+AIRPORT_MAX_KM = (AIRPORT_MAX_DRIVE_MINS / 60) * AIRPORT_AVG_SPEED_KMH  # ~70 km straight-line proxy
+MIN_AREA_SQM   = MIN_AREA_SQFT * 0.092903                                # 1 sqft = 0.092903 m²
+
+# ─── Group 2 — Opportunistic Signals (annotation only, no parcels excluded) ──
+# Set any toggle to False to skip that signal's query and leave the column blank.
+GROUP2 = {
+    "premium_wine_zone": True,   # parcel falls within a Siena DOCG zone where wines sell at $150+
+    "distress_signal":   True,   # abandoned/disused land within DISTRESS_SEARCH_RADIUS_M (neglect proxy)
+    "succession_signal": True,   # Italian family estate naming (Podere/Fattoria/Tenuta) on or near parcel
+    "lodging_overlay":   True,   # tourism activity nearby → lodging 'change of use' precedent under L.96/2006
+}
+
+# Premium DOCG zones in Province of Siena where top bottles regularly trade at $150+.
+# Hardcoded as static geographic facts — OSM carries no DOCG boundary data for this region.
+# Bbox format: (south_lat, west_lon, north_lat, east_lon)
+PREMIUM_DOCG_ZONES = {
+    "Brunello di Montalcino":       (42.82, 11.35, 43.15, 11.70),  # Biondi Santi, Poggio di Sotto, etc.
+    "Vino Nobile di Montepulciano": (43.07, 11.75, 43.17, 11.95),  # Avignonesi, Poliziano
+    "Chianti Classico (Siena)":     (43.28, 11.27, 43.52, 11.68),  # Brolio, Badia a Coltibuono, etc.
+}
+
+DISTRESS_SEARCH_RADIUS_M   = 500   # metres — OSM abandoned element must be within this distance
+FIRE_SEARCH_RADIUS_M       = 2000  # metres — EFFIS fire perimeter centroid within this distance
+LODGING_SEARCH_RADIUS_M    = 750   # metres — tourism node must be within this distance
+SUCCESSION_SEARCH_RADIUS_M = 300   # metres — estate-named OSM feature within this distance
+FIRE_LOOKBACK_YEARS        = 10    # years of EFFIS fire history to include
+
+# ─── External API credentials ─────────────────────────────────────────────────
+# OpenAPI.it — free tier available at https://console.openapi.com (no credit card needed).
+# Register, navigate to the Catasto section, and paste your OAuth Bearer token below.
+# Example: OPENAPI_IT_KEY = "Bearer eyJ0eXAiOiJKV1QiLCJhbGci..."
+OPENAPI_IT_KEY = ""
+
+# ─── API ──────────────────────────────────────────────────────────────────────
+OVERPASS_URL     = "https://overpass-api.de/api/interpreter"
+OVERPASS_TIMEOUT = 180   # seconds; raise if queries time out on slow connections
+
+# ─── 9-Layer Acquisition Engine ───────────────────────────────────────────────
+# Toggle each layer True (active) or False (skip).
+# Layers marked PAID FEATURE require a commercial API subscription to return real data.
+# When credentials are absent they return a safe placeholder — no crash, no data loss.
+LAYERS = {
+    # ── Group 1: Geo Layers — run via scout.py ─────────────────────────────────
+    "satellite_neglect":   True,   # Sentinel Hub NDVI vigor delta — free 30-day trial
+    "permit_paralysis":    True,   # Albo Pretorio stalled permits — PAID FEATURE
+    "zoning_alchemy":      True,   # Zone E WFS check (free) + permit keywords (PAID)
+    "napa_neighbor":       True,   # LVMH/Antinori proximity ripple — free, hardcoded
+    # ── Group 2: Brand / Sentiment Layers — run via sentiment.py ──────────────
+    "hospitality_fatigue": True,   # TripAdvisor review velocity — PAID FEATURE
+    "digital_ghost":       True,   # WHOIS + Wayback CDX web decay — free
+    "terroir_score_delta": True,   # Soil quality vs critic scores — PAID FEATURE
+    # ── Group 3: Legal Layers — run via acquisitions.py ───────────────────────
+    "succession_frag":     True,   # Co-owner count via OpenAPI.it Catasto — PAID FEATURE
+    "owner_relocation":    True,   # Fiscal code decode (free) + cadastral address (PAID)
+}
+
+# ─── Layer credentials ────────────────────────────────────────────────────────
+# Sentinel Hub — free 30-day trial at https://www.sentinel-hub.com/
+# After login: User Settings → OAuth clients → New client → copy ID and secret.
+SENTINEL_HUB_CLIENT_ID     = ""
+SENTINEL_HUB_CLIENT_SECRET = ""
+
+# TripAdvisor Content API — free tier (5,000 req/month) at https://www.tripadvisor.com/developers
+TRIPADVISOR_API_KEY = ""
+
+# Wine-Searcher API — https://www.wine-searcher.com/api (100 free searches/day)
+WINE_SEARCHER_API_KEY = ""
+
+# Albo Pretorio — no unified public API; set when a commercial aggregator is contracted
+ALBO_PRETORIO_API_KEY = ""
