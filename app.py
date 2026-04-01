@@ -16,7 +16,7 @@ import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
-import streamlit_shadcn_ui as ui
+
 import config
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
@@ -844,10 +844,9 @@ filter_state = {}
 for i, fm in enumerate(FILTER_META):
     col = fc1 if i % 2 == 0 else fc2
     with col:
-        _on = st.session_state.get(f"filter_{fm['key']}", config.FILTERS[fm["key"]])
-        filter_state[fm["key"]] = ui.switch(
-            default_checked=config.FILTERS[fm["key"]],
-            label=f"{'🟢' if _on else '⚪'}  {fm['label']}",
+        filter_state[fm["key"]] = st.checkbox(
+            fm["label"],
+            value=config.FILTERS[fm["key"]],
             key=f"filter_{fm['key']}",
         )
         st.caption(fm["desc"])
@@ -869,17 +868,15 @@ for i, sm in enumerate(free_signals):
     with col:
         if sm["group"] == "group2":
             _default = getattr(config, group)[cfg_key]
-            _on = st.session_state.get(f"sig_{sm['key']}", _default)
-            g2_state[cfg_key] = ui.switch(
-                default_checked=_default,
-                label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
+            g2_state[cfg_key] = st.checkbox(
+                sm["label"],
+                value=_default,
                 key=f"sig_{sm['key']}",
             )
         else:
-            _on = st.session_state.get(f"layer_{sm['key']}", True)
-            layer_state[cfg_key] = ui.switch(
-                default_checked=True,
-                label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
+            layer_state[cfg_key] = st.checkbox(
+                sm["label"],
+                value=True,
                 key=f"layer_{sm['key']}",
             )
         st.caption(sm["desc"])
@@ -892,21 +889,15 @@ st.caption("Require API credentials — disabled by default. Enable when credent
 
 paid_layers = [sm for sm in SIGNAL_META if sm["paid"]]
 
-# Pre-seed session state to default paid layers OFF
-for sm in paid_layers:
-    if f"layer_{sm['key']}" not in st.session_state:
-        st.session_state[f"layer_{sm['key']}"] = False
-
 pl1, pl2, pl3 = st.columns(3)
 for i, sm in enumerate(paid_layers):
     _, cfg_key = sm["config"]
     col = [pl1, pl2, pl3][i % 3]
     info = PREMIUM_LAYER_INFO.get(cfg_key, {})
     with col:
-        _on = st.session_state.get(f"layer_{sm['key']}", False)
-        layer_state[cfg_key] = ui.switch(
-            default_checked=False,
-            label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
+        layer_state[cfg_key] = st.checkbox(
+            sm["label"],
+            value=False,
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
