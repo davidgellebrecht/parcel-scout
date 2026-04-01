@@ -155,7 +155,6 @@ hr {
 }
 
 /* ── Expander header ── */
-/* Text label only — font-family set on summary p, not on summary itself */
 [data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
@@ -163,12 +162,26 @@ hr {
     color: #2A2118 !important;
     opacity: 1 !important;
 }
-/* Restore Material Icons font on the icon span — the global [class*="css"] rule
-   overrides it with Montserrat, causing the glyph to render as "_arro" text.
-   summary > span is the direct-child icon span; summary p is the text. */
-[data-testid="stExpander"] summary > span,
-[data-testid="stExpander"] summary > div > span:first-child {
-    font-family: 'Material Icons', 'Material Icons Rounded', 'Material Icons Outlined' !important;
+/* Hide the Material Icons arrow span entirely — the global font rule overrides
+   Material Icons with Montserrat, rendering the glyph as "_arro" literal text.
+   Replace with a CSS › character that rotates on open/close instead. */
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary svg {
+    display: none !important;
+}
+[data-testid="stExpander"] summary::before {
+    content: '›';
+    font-family: 'Cormorant Garamond', serif !important;
+    font-size: 1.3rem;
+    color: #8B6914;
+    margin-right: 0.5rem;
+    display: inline-block;
+    transition: transform 0.2s ease;
+    line-height: 1;
+    vertical-align: middle;
+}
+[data-testid="stExpander"] details[open] > summary::before {
+    transform: rotate(90deg);
 }
 
 /* ── Expander body (open state) ── */
@@ -949,17 +962,27 @@ for cfg_key, cred_var in LAYER_CRED.items():
         missing_creds.append((label, cred_var, info))
 
 if missing_creds:
-    # De-duplicate entries that share a credential (e.g. both OpenAPI.it layers)
-    seen_creds = set()
-    lines = []
+    n = len(missing_creds)
+    rows_html = ""
     for label, cred_var, info in missing_creds:
-        impact = "will return **limited data** (free components still run)" if info["degrades"] else "will return **no data** and contribute nothing to scores"
-        lines.append(f"- **{label}** — needs `{cred_var}` — {impact}  \n  ↳ {info['setup']}")
-        seen_creds.add(cred_var)
-    st.warning(
-        f"**{len(missing_creds)} premium layer{'s' if len(missing_creds) > 1 else ''} enabled without credentials.**  \n"
-        "The scan will still run — but these layers will be inactive:\n\n" +
-        "\n\n".join(lines)
+        impact = "Limited data — free components still run" if info["degrades"] else "No data — layer contributes nothing to scores"
+        rows_html += (
+            f'<li style="margin-bottom:0.5rem;">'
+            f'<strong style="color:#1A1200;">{label}</strong>'
+            f' &mdash; needs <code style="background:#FFF0A0;padding:1px 4px;border-radius:2px;color:#8B4513;font-size:0.72rem;">{cred_var}</code>'
+            f' &mdash; {impact}<br>'
+            f'<span style="color:#5C4A00;font-size:0.72rem;">↳ {info["setup"]}</span>'
+            f'</li>'
+        )
+    st.markdown(
+        f'<div style="background:#FFF9C4;border:1.5px solid #F9A825;padding:1rem 1.2rem;margin:0.5rem 0;">'
+        f'<p style="color:#1A1200;font-weight:700;margin:0 0 0.4rem 0;font-family:Montserrat,sans-serif;font-size:0.82rem;">'
+        f'⚠ {n} premium layer{"s" if n > 1 else ""} enabled without credentials.</p>'
+        f'<p style="color:#1A1200;margin:0 0 0.6rem 0;font-family:Montserrat,sans-serif;font-size:0.78rem;">'
+        f'The scan will still run — but these layers will be inactive:</p>'
+        f'<ul style="color:#1A1200;font-family:Montserrat,sans-serif;font-size:0.78rem;margin:0;padding-left:1.2rem;">'
+        f'{rows_html}</ul></div>',
+        unsafe_allow_html=True,
     )
 
 st.markdown("---")
