@@ -10,11 +10,12 @@ FILTERS = {
 }
 
 # ─── Region ───────────────────────────────────────────────────────────────────
-REGION = "Chianti Classico (demo area)"
+REGION = "Chianti Classico (mini demo)"
 # Bounding box: (south_lat, west_lon, north_lat, east_lon)
-# TEMPORARY DEMO BBOX — Chianti Classico core, ~25×30 km, fast Overpass queries
+# MINI DEMO BBOX — ~9×10 km around Gaiole in Chianti, fastest possible query
+# Revert to (43.35, 11.35, 43.50, 11.65) for full demo area
 # Revert to (42.63, 10.90, 43.52, 11.93) for full Province of Siena
-REGION_BBOX = (43.35, 11.35, 43.50, 11.65)
+REGION_BBOX = (43.41, 11.42, 43.48, 11.55)
 
 # ─── Thresholds ───────────────────────────────────────────────────────────────
 AIRPORT_MAX_DRIVE_MINS   = 60      # minutes
@@ -36,8 +37,8 @@ MIN_AREA_SQM   = MIN_AREA_SQFT * 0.092903                                # 1 sqf
 GROUP2 = {
     "premium_wine_zone": True,   # parcel falls within a Siena DOCG zone where wines sell at $150+
     "distress_signal":   False,  # TEMP disabled — EFFIS fire query times out; re-enable for full scan
-    "succession_signal": True,   # Italian family estate naming (Podere/Fattoria/Tenuta) on or near parcel
-    "lodging_overlay":   True,   # tourism activity nearby → lodging 'change of use' precedent under L.96/2006
+    "succession_signal": False,  # TEMP DEMO OFF — skips extra Overpass query to keep demo fast
+    "lodging_overlay":   False,  # TEMP DEMO OFF — skips extra Overpass query to keep demo fast
 }
 
 # Premium DOCG zones in Province of Siena where top bottles regularly trade at $150+.
