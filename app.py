@@ -227,6 +227,24 @@ hr {
     background-color: #8B6914 !important;
 }
 
+/* ── Dossier / secondary buttons ── */
+.stButton > button[kind="secondary"] {
+    background-color: #2A2118 !important;
+    color: #F4EFE6 !important;
+    border: 1px solid #8B6914 !important;
+    border-radius: 0 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    padding: 0.7rem 1rem !important;
+}
+.stButton > button[kind="secondary"]:hover {
+    background-color: #8B6914 !important;
+    border-color: #8B6914 !important;
+}
+
 /* ── Secondary / download buttons ── */
 .stDownloadButton > button {
     background-color: transparent !important;
@@ -1124,90 +1142,146 @@ else:
     # ── Tabs ──────────────────────────────────────────────────────────────────
     tab_rank, tab_map, tab_raw = st.tabs(["Rankings", "Map", "Raw Data"])
 
-    # ── Rankings ─────────────────────────────────────────────────────────────
+    # ── Property Cards ────────────────────────────────────────────────────────
     with tab_rank:
-        df_display = build_rankings_df(parcels)
+        active_dossier = st.session_state.get("active_dossier", None)
+        card_cols = st.columns(3)
 
-        def color_score(val):
-            if val >= 30:
-                return "color: #4A6741; font-weight: 600;"
-            if val >= 15:
-                return "color: #8B6914; font-weight: 600;"
-            return "color: #7A6A55;"
+        for idx, p in enumerate(parcels):
+            col       = card_cols[idx % 3]
+            score     = p["opportunity_score"]
+            name      = (p.get("name") or "").strip() or f"{p.get('primary_crop_type','').replace('_',' ').title()} Parcel" or f"Parcel #{idx+1}"
+            lat       = p.get("lat", 43.45)
+            lon       = p.get("lon", 11.48)
+            fired     = signals_fired_list(p)
+            acres     = int(round(p.get("parcel_acres", 0)))
+            airport   = f"{int(round(p.get('dist_airport_km', 0)))} km · {p.get('airport_iata', '')}"
+            crop      = p.get("primary_crop_type", "").replace("_", " ").title() or "—"
+            heritage  = p.get("closest_historic_tag", "").title() or "—"
+            score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
+            is_open   = (active_dossier == idx)
 
-        styled = (
-            df_display.style
-            .map(color_score, subset=["Score"])
-            .format({"Score": "{:.1f}"})
-            .hide(axis="index")
-        )
-        st.dataframe(styled, use_container_width=True, height=420)
-
-        st.markdown("---")
-        st.markdown('<span class="gb-label">Parcel Detail</span>', unsafe_allow_html=True)
-
-        for rank, p in enumerate(parcels, 1):
-            score = p["opportunity_score"]
-            name  = p.get("name") or p.get("gps_coordinates", "")
-            fired = signals_fired_list(p)
-
-            with st.expander(f"#{rank}  {name[:55]}  —  {score:.1f}/100", expanded=(rank == 1)):
-                dc1, dc2, dc3 = st.columns(3)
-                dc1.metric("Opportunity Score", f"{score:.1f}/100",
-                    help="0–100 score: each of the 13 signals is worth ~7.7 pts. "
-                         "Only signals that are enabled and have credentials configured count toward the total.")
-                dc1.metric("Crop Type", p.get("primary_crop_type", "").title(),
-                    help="Primary land-use type from OpenStreetMap tags "
-                         "(vineyard, olive grove, orchard, farmland, etc.).")
-                dc2.metric("Parcel Size", f"{p.get('parcel_acres',0):.0f} acres",
-                    help="Parcel area in acres, calculated from the OSM polygon geometry.")
-                dc2.metric("Airport", f"{p.get('dist_airport_km',0):.0f} km ({p.get('airport_iata','')})",
-                    help="Straight-line distance to the nearest target airport (Pisa PSA or Florence FLR). "
-                         "Hard filter: parcels beyond ~70 km straight-line are excluded from results.")
-                dc3.metric("Heritage", p.get("closest_historic_tag", "").title() or "N/A",
-                    help="Type of historic structure physically inside the parcel boundary — "
-                         "castle, chapel, villa, farmhouse, ruins, etc. "
-                         "Parcels whose only historic feature is a non-renovatable marker "
-                         "(memorial, milestone, wayside cross) are excluded.")
-                dc3.metric("Confidence", p.get("heritage_confidence", "").title() or "N/A",
-                    help="How specifically the structure is tagged in OpenStreetMap:\n"
-                         "• High — named type (chapel, villa, farmhouse, castle…)\n"
-                         "• Medium — structure exists but type uncertain (ruins, building)\n"
-                         "• Low — tagged 'historic=yes' only, mapper confirmed something is there but didn't specify what")
-
-                st.markdown("**Signals fired:**")
-                if fired:
-                    sig_cols = st.columns(min(len(fired), 4))
-                    for i, sig in enumerate(fired):
-                        sig_cols[i % 4].success(f"✓ {sig}")
-                else:
-                    st.caption("No signals fired for this parcel.")
-
-                unfired = [
-                    sm["label"] for sm in SIGNAL_META
-                    if sm["key"] in active_keys and not p.get(sm["key"])
-                ]
-                if unfired:
-                    st.markdown("**Not triggered:**")
-                    st.caption("  ·  ".join(unfired))
-
+            with col:
+                # ── Map thumbnail ──────────────────────────────────────────
+                map_url = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat},{lon}&zoom=14&size=400x220"
                 st.markdown(
-                    f"**[View on OpenStreetMap ↗]({p.get('osm_url','')})**  ·  "
-                    f"GPS: `{p.get('gps_coordinates','')}`"
+                    f'<div style="width:100%;height:155px;overflow:hidden;background:#D4C4A0;margin-bottom:0;">'
+                    f'<img src="{map_url}" style="width:100%;height:155px;object-fit:cover;display:block;" /></div>',
+                    unsafe_allow_html=True,
                 )
 
-                with st.expander("Full signal details"):
-                    detail_rows = []
-                    for sm in SIGNAL_META:
-                        if sm["key"] not in active_keys:
-                            continue
-                        detail_key = sm["key"].replace("_signal", "_detail")
-                        detail_rows.append({
-                            "Signal": sm["label"],
-                            "Fired":  "✓" if p.get(sm["key"]) else "—",
-                            "Detail": p.get(detail_key, ""),
-                        })
-                    st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
+                # ── Score + title ──────────────────────────────────────────
+                st.markdown(
+                    f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid #EDE6D8;">'
+                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
+                    f'letter-spacing:0.18em;text-transform:uppercase;color:{score_clr};margin-bottom:0.2rem;">'
+                    f'Score {score:.1f} / 100</div>'
+                    f'<div style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:1.35rem;'
+                    f'color:#2A2118;line-height:1.25;">{name[:55]}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Key Intel ──────────────────────────────────────────────
+                st.markdown(
+                    f'<div style="padding:0.6rem 0;border-bottom:1px solid #EDE6D8;">'
+                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.52rem;font-weight:700;'
+                    f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;margin-bottom:0.4rem;">Key Intel</div>'
+                    f'<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;font-size:0.72rem;color:#3A2E22;">'
+                    f'<tr><td style="padding:2px 0;width:1.2rem;">⬜</td><td style="padding:2px 4px;color:#7A6A55;">Footprint</td><td style="padding:2px 0;text-align:right;font-weight:500;">{acres} acres</td></tr>'
+                    f'<tr><td style="padding:2px 0;">🌿</td><td style="padding:2px 4px;color:#7A6A55;">Soil / Use</td><td style="padding:2px 0;text-align:right;font-weight:500;">{crop}</td></tr>'
+                    f'<tr><td style="padding:2px 0;">✈</td><td style="padding:2px 4px;color:#7A6A55;">Airport</td><td style="padding:2px 0;text-align:right;font-weight:500;">{airport}</td></tr>'
+                    f'<tr><td style="padding:2px 0;">🏛</td><td style="padding:2px 4px;color:#7A6A55;">Heritage</td><td style="padding:2px 0;text-align:right;font-weight:500;">{heritage}</td></tr>'
+                    f'</table></div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Signal chips ───────────────────────────────────────────
+                if fired:
+                    chips = "".join(
+                        f'<span style="display:inline-block;background:#E8F5E9;color:#2A4028;'
+                        f'border:1px solid #4A6741;font-family:Montserrat,sans-serif;'
+                        f'font-size:0.58rem;padding:2px 6px;margin:2px 2px 0 0;">✓ {sig}</span>'
+                        for sig in fired
+                    )
+                    st.markdown(f'<div style="padding:0.5rem 0 0.6rem;">{chips}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(
+                        '<div style="padding:0.5rem 0 0.6rem;font-family:Montserrat,sans-serif;'
+                        'font-size:0.7rem;color:#7A6A55;font-style:italic;">No signals fired</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── Dossier button ─────────────────────────────────────────
+                btn_label = "Close Dossier  ✕" if is_open else "View Intelligence Dossier"
+                if st.button(btn_label, key=f"dossier_btn_{idx}", use_container_width=True):
+                    st.session_state.active_dossier = None if is_open else idx
+                    st.rerun()
+
+        # ── Full-width Intelligence Dossier panel ─────────────────────────────
+        if active_dossier is not None and active_dossier < len(parcels):
+            p     = parcels[active_dossier]
+            score = p["opportunity_score"]
+            name  = (p.get("name") or p.get("gps_coordinates", f"Parcel #{active_dossier+1}"))
+            fired = signals_fired_list(p)
+            score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
+
+            st.markdown("---")
+            st.markdown(
+                f'<div style="margin-bottom:1.2rem;">'
+                f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
+                f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;">Intelligence Dossier</div>'
+                f'<div style="font-family:\'Cormorant Garamond\',serif;font-size:2.4rem;font-weight:300;'
+                f'color:#2A2118;line-height:1.1;margin-top:0.15rem;">{name}</div>'
+                f'<div style="font-family:Montserrat,sans-serif;font-size:0.68rem;color:{score_clr};'
+                f'font-weight:600;margin-top:0.25rem;letter-spacing:0.05em;">'
+                f'Opportunity Score: {score:.1f} / 100</div></div>',
+                unsafe_allow_html=True,
+            )
+
+            dc1, dc2, dc3 = st.columns(3)
+            dc1.metric("Opportunity Score", f"{score:.1f}/100",
+                help="0–100 score: each of the 13 signals is worth ~7.7 pts.")
+            dc1.metric("Crop Type", p.get("primary_crop_type", "").title(),
+                help="Primary land-use type from OpenStreetMap tags.")
+            dc2.metric("Parcel Size", f"{p.get('parcel_acres',0):.0f} acres",
+                help="Parcel area calculated from the OSM polygon geometry.")
+            dc2.metric("Airport", f"{p.get('dist_airport_km',0):.0f} km ({p.get('airport_iata','')})",
+                help="Straight-line distance to nearest target airport (PSA or FLR).")
+            dc3.metric("Heritage", p.get("closest_historic_tag", "").title() or "N/A",
+                help="Historic structure type physically inside the parcel boundary.")
+            dc3.metric("Confidence", p.get("heritage_confidence", "").title() or "N/A",
+                help="High = named type · Medium = type uncertain · Low = 'historic=yes' only")
+
+            st.markdown("**Signals fired:**")
+            if fired:
+                sig_cols = st.columns(min(len(fired), 4))
+                for i, sig in enumerate(fired):
+                    sig_cols[i % 4].success(f"✓ {sig}")
+            else:
+                st.caption("No signals fired for this parcel.")
+
+            unfired = [sm["label"] for sm in SIGNAL_META if sm["key"] in active_keys and not p.get(sm["key"])]
+            if unfired:
+                st.markdown("**Not triggered:**")
+                st.caption("  ·  ".join(unfired))
+
+            st.markdown(
+                f"**[View on OpenStreetMap ↗]({p.get('osm_url','')})**  ·  GPS: `{p.get('gps_coordinates','')}`"
+            )
+
+            with st.expander("Full signal details"):
+                detail_rows = []
+                for sm in SIGNAL_META:
+                    if sm["key"] not in active_keys:
+                        continue
+                    detail_key = sm["key"].replace("_signal", "_detail")
+                    detail_rows.append({
+                        "Signal": sm["label"],
+                        "Fired":  "✓" if p.get(sm["key"]) else "—",
+                        "Detail": str(p.get(detail_key, "")),
+                    })
+                st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
 
     # ── Map ───────────────────────────────────────────────────────────────────
     with tab_map:
