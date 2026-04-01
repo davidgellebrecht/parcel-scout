@@ -283,25 +283,32 @@ hr {
     color: #2A2118 !important;
 }
 
+/* ── Success boxes (Signals fired) ── */
+[data-testid="stAlert"][data-baseweb="notification"]:has(svg[data-testid="stAlertDynamicIcon-success"]),
+.stSuccess, [data-testid="stAlert"].stSuccess {
+    background-color: #E8F5E9 !important;
+    border: 1.5px solid #4A6741 !important;
+    border-radius: 0 !important;
+    opacity: 1 !important;
+}
+.stSuccess p, .stSuccess div, .stSuccess span {
+    color: #2A4028 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.75rem !important;
+    opacity: 1 !important;
+}
+
 /* ── Warning box ── */
-[data-testid="stAlert"],
-[data-testid="stAlert"] > div,
-div[data-baseweb="notification"] {
+.stWarning, [data-testid="stAlert"].stWarning,
+div[data-baseweb="notification"]:not(.stSuccess):not(.stError):not(.stInfo) {
     background-color: #FFF176 !important;
     border: 1px solid #F9A825 !important;
     border-radius: 0 !important;
     opacity: 1 !important;
 }
-/* Force all text inside the warning to be near-black — override any inherited opacity/color */
-[data-testid="stAlert"] p,
-[data-testid="stAlert"] li,
-[data-testid="stAlert"] strong,
-[data-testid="stAlert"] span,
-[data-testid="stAlert"] code,
-[data-testid="stAlert"] div,
-div[data-baseweb="notification"] p,
-div[data-baseweb="notification"] span,
-div[data-baseweb="notification"] div {
+.stWarning p, .stWarning li, .stWarning strong,
+.stWarning span, .stWarning code, .stWarning div {
     color: #1A1200 !important;
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
