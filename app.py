@@ -135,18 +135,18 @@ hr {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.8rem !important;
     font-weight: 500 !important;
-    color: #2A2118 !important;
+    color: #1A1210 !important;
     letter-spacing: 0.02em !important;
 }
 .stCheckbox > label > span {
-    color: #2A2118 !important;
+    color: #1A1210 !important;
 }
 
 /* ── Captions ── */
 .stCaption, [data-testid="stCaptionContainer"] p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.7rem !important;
-    color: #7A6A55 !important;
+    color: #4A3C2E !important;
     line-height: 1.5 !important;
 }
 
