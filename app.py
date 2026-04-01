@@ -687,7 +687,11 @@ for i, sm in enumerate(free_layers):
         )
         st.caption(sm["desc"])
 
-# Paid layers
+# Paid layers — force off on first load by pre-seeding session state
+for sm in paid_layers:
+    if f"layer_{sm['key']}" not in st.session_state:
+        st.session_state[f"layer_{sm['key']}"] = False
+
 st.markdown('<span class="gb-label" style="margin-top:1.2rem;">Premium Layers</span>', unsafe_allow_html=True)
 st.caption("Require a paid API subscription. Toggled off by default — enable when credentials are configured.")
 
