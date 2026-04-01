@@ -155,15 +155,23 @@ hr {
 }
 
 /* ── Expander header ── */
+/* Target only the text paragraph, NOT the icon span (which uses Material Icons font) */
 .streamlit-expanderHeader,
 [data-testid="stExpander"] summary,
-[data-testid="stExpander"] summary p,
-[data-testid="stExpander"] summary span {
+[data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
     color: #2A2118 !important;
     opacity: 1 !important;
+}
+
+/* ── Expander body (open state) ── */
+[data-testid="stExpander"] details > div,
+[data-testid="stExpander"] .streamlit-expanderContent {
+    background-color: #FAF6EF !important;
+    border: 1px solid #D4C4A0 !important;
+    padding: 1rem !important;
 }
 
 /* ── Primary button (Run Scan) ── */
