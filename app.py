@@ -641,9 +641,27 @@ def run_full_scan(filter_state: dict, g2_state: dict, layer_state: dict) -> list
     st.session_state.scan_log.append("Running Group 2 signal annotation…")
     parcels = annotate_group2(parcels, distress_elements, estate_features, tourism_nodes)
 
-    st.session_state.scan_log.append("Running all 9 acquisition layers…")
+    st.session_state.scan_log.append("Running acquisition layers…")
     parcels = run_all_layers(parcels)
     st.session_state.scan_log.append("  → All layers complete")
+
+    # ── Count actual API calls made (non-stub, non-disabled results) ──────────
+    # This lets the UI show credit usage per service after each scan.
+    # A result is a real API call if its detail field is NOT a stub/disabled msg.
+    _stub_phrases = ("PAID FEATURE", "Layer disabled", "disabled in config")
+    _api_layer_map = {
+        "hospitality_fatigue": "TripAdvisor",
+        "terroir_score_delta":  "Wine-Searcher",
+        "succession_frag":      "OpenAPI.it",
+        "owner_relocation":     "OpenAPI.it",
+    }
+    usage: dict = {}
+    for p in parcels:
+        for layer_key, service in _api_layer_map.items():
+            detail = p.get(f"layer_{layer_key}_detail", "")
+            if detail and not any(ph in detail for ph in _stub_phrases):
+                usage[service] = usage.get(service, 0) + 1
+    st.session_state.api_usage = usage
 
     return parcels
 
@@ -1028,6 +1046,20 @@ else:
             f"Scanned **{total_raw:,}** total parcels in {st.session_state.get('scan_region', config.REGION)}"
             f" — **{len(parcels)}** matched all required filters."
         )
+
+    # ── API credit usage (shown only when at least one paid API was called) ───
+    api_usage = st.session_state.get("api_usage", {})
+    if api_usage:
+        _monthly_limits = {
+            "TripAdvisor":   ("5,000",  "month"),
+            "Wine-Searcher": ("100",    "day"),
+            "OpenAPI.it":    ("varies", "month"),
+        }
+        usage_parts = []
+        for service, calls in api_usage.items():
+            limit, period = _monthly_limits.get(service, ("?", ""))
+            usage_parts.append(f"**{service}**: {calls} call{'s' if calls != 1 else ''} (free limit: {limit}/{period})")
+        st.caption("API credits used this scan — " + "  ·  ".join(usage_parts))
 
     st.markdown("---")
 

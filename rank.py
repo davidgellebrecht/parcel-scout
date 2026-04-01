@@ -78,17 +78,29 @@ from layers.brand_layers.terroir_score_delta      import TerroirScoreDeltaLayer
 from layers.legal_layers.succession_fragmentation import SuccessionFragmentationLayer
 from layers.legal_layers.owner_relocation         import OwnerRelocationLayer
 
-# ── Layer registry — order determines display order in output ─────────────────
+# ── Layer registry ────────────────────────────────────────────────────────────
+# Execution order is intentional:
+#   1. Free / instant layers first — no API credits consumed, fast
+#   2. Free-tier API layers next — consume monthly/daily quotas, run only when needed
+#   3. Partially-paid layers after — free component still runs, paid adds depth
+#   4. Fully-paid / no free tier last — skip unless credentials are set
+#
+# This order means: if the scan is interrupted early, credits are spent
+# only on parcels that have already shown promise from the free signals.
 ALL_LAYERS = [
-    SatelliteNeglectLayer(),     # Layer 1
-    PermitParalysisLayer(),      # Layer 2
-    ZoningAlchemyLayer(),        # Layer 3
-    NapaNeighborLayer(),         # Layer 4
-    HospitalityFatigueLayer(),   # Layer 5
-    DigitalGhostLayer(),         # Layer 6
-    TerroirScoreDeltaLayer(),    # Layer 7
-    SuccessionFragmentationLayer(),  # Layer 8
-    OwnerRelocationLayer(),      # Layer 9
+    # ── Tier 0: Free, no external API ─────────────────────────────────────────
+    NapaNeighborLayer(),              # free — hardcoded proximity math, instant
+    DigitalGhostLayer(),              # free — WHOIS + Wayback CDX (public APIs)
+    # ── Tier 1: Free-tier APIs (quota-based) ──────────────────────────────────
+    HospitalityFatigueLayer(),        # free tier — TripAdvisor 5,000 req/month
+    TerroirScoreDeltaLayer(),         # free tier — Wine-Searcher 100 req/day ← most constrained
+    SuccessionFragmentationLayer(),   # free tier — OpenAPI.it Catasto
+    # ── Tier 2: Partially paid (free component always runs) ───────────────────
+    ZoningAlchemyLayer(),             # free: Regione Toscana WFS; paid: Albo Pretorio
+    OwnerRelocationLayer(),           # free: fiscal code decode; paid: cadastral contact
+    # ── Tier 3: Fully paid, no free tier ──────────────────────────────────────
+    SatelliteNeglectLayer(),          # paid — Sentinel Hub NDVI (30-day trial)
+    PermitParalysisLayer(),           # paid — Albo Pretorio commercial aggregator
 ]
 
 # ── All 13 signal keys used in the Opportunity Score ─────────────────────────
