@@ -172,12 +172,12 @@ hr {
     color: #2A2118 !important;
     opacity: 1 !important;
 }
-/* Hide ONLY the Material Icons glyph span — it renders as "_arro" when Montserrat
-   is forced on it by the global font rule. Target by class name, not all spans. */
-[data-testid="stExpander"] summary span[class*="material"] {
+/* Hide the icon span — it renders as "_arro" when Montserrat is forced on it.
+   The label text lives in a <p>, so hiding all <span> in summary is safe. */
+[data-testid="stExpander"] summary span {
     display: none !important;
 }
-/* Tint the SVG chevron gold (some Streamlit builds use SVG instead of span) */
+/* Tint the SVG chevron gold */
 [data-testid="stExpander"] summary svg {
     color: #8B6914 !important;
     fill: #8B6914 !important;
