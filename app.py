@@ -101,17 +101,19 @@ h2, h3 {
     letter-spacing: 0.04em !important;
 }
 
-/* ── Section labels (small caps) ── */
+/* ── Section labels ── */
 .gb-label {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.62rem;
-    font-weight: 600;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.03em;
     color: #8B6914;
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.15rem;
     margin-top: 0.2rem;
     display: block;
+    border-bottom: 1px solid #D4C4A0;
+    padding-bottom: 0.3rem;
 }
 
 /* ── Divider ── */
@@ -846,9 +848,10 @@ filter_state = {}
 for i, fm in enumerate(FILTER_META):
     col = fc1 if i % 2 == 0 else fc2
     with col:
+        _on = st.session_state.get(f"filter_{fm['key']}", config.FILTERS[fm["key"]])
         filter_state[fm["key"]] = ui.switch(
             default_checked=config.FILTERS[fm["key"]],
-            label=fm["label"],
+            label=f"{'🟢' if _on else '⚪'}  {fm['label']}",
             key=f"filter_{fm['key']}",
         )
         st.caption(fm["desc"])
@@ -869,15 +872,18 @@ for i, sm in enumerate(free_signals):
     col = [sc1, sc2, sc3][i % 3]
     with col:
         if sm["group"] == "group2":
+            _default = getattr(config, group)[cfg_key]
+            _on = st.session_state.get(f"sig_{sm['key']}", _default)
             g2_state[cfg_key] = ui.switch(
-                default_checked=getattr(config, group)[cfg_key],
-                label=sm["label"],
+                default_checked=_default,
+                label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
                 key=f"sig_{sm['key']}",
             )
         else:
+            _on = st.session_state.get(f"layer_{sm['key']}", True)
             layer_state[cfg_key] = ui.switch(
                 default_checked=True,
-                label=sm["label"],
+                label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
                 key=f"layer_{sm['key']}",
             )
         st.caption(sm["desc"])
@@ -901,9 +907,10 @@ for i, sm in enumerate(paid_layers):
     col = [pl1, pl2, pl3][i % 3]
     info = PREMIUM_LAYER_INFO.get(cfg_key, {})
     with col:
+        _on = st.session_state.get(f"layer_{sm['key']}", False)
         layer_state[cfg_key] = ui.switch(
             default_checked=False,
-            label=sm["label"],
+            label=f"{'🟢' if _on else '⚪'}  {sm['label']}",
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
