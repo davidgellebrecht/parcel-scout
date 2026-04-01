@@ -284,19 +284,28 @@ hr {
 }
 
 /* ── Warning box ── */
-.stWarning, [data-testid="stAlert"][kind="warning"] {
+[data-testid="stAlert"],
+[data-testid="stAlert"] > div,
+div[data-baseweb="notification"] {
     background-color: #FFF176 !important;
     border: 1px solid #F9A825 !important;
     border-radius: 0 !important;
-    color: #1A1200 !important;
+    opacity: 1 !important;
 }
-.stWarning p, .stWarning li, .stWarning strong,
-[data-testid="stAlert"][kind="warning"] p,
-[data-testid="stAlert"][kind="warning"] li,
-[data-testid="stAlert"][kind="warning"] strong {
+/* Force all text inside the warning to be near-black — override any inherited opacity/color */
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] li,
+[data-testid="stAlert"] strong,
+[data-testid="stAlert"] span,
+[data-testid="stAlert"] code,
+[data-testid="stAlert"] div,
+div[data-baseweb="notification"] p,
+div[data-baseweb="notification"] span,
+div[data-baseweb="notification"] div {
     color: #1A1200 !important;
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
+    opacity: 1 !important;
 }
 
 
