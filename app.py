@@ -131,23 +131,39 @@ hr {
 }
 
 /* ── Checkboxes ── */
-.stCheckbox > label {
+.stCheckbox > label,
+.stCheckbox > label > div,
+.stCheckbox > label > span,
+.stCheckbox span[data-testid="stMarkdownContainer"] p {
     font-family: 'Montserrat', sans-serif !important;
-    font-size: 0.8rem !important;
+    font-size: 0.82rem !important;
     font-weight: 500 !important;
     color: #1A1210 !important;
     letter-spacing: 0.02em !important;
-}
-.stCheckbox > label > span {
-    color: #1A1210 !important;
+    opacity: 1 !important;
 }
 
 /* ── Captions ── */
-.stCaption, [data-testid="stCaptionContainer"] p {
+.stCaption,
+[data-testid="stCaptionContainer"] p,
+[data-testid="stCaptionContainer"] {
     font-family: 'Montserrat', sans-serif !important;
-    font-size: 0.7rem !important;
-    color: #4A3C2E !important;
-    line-height: 1.5 !important;
+    font-size: 0.72rem !important;
+    color: #3A2E22 !important;
+    line-height: 1.55 !important;
+    opacity: 1 !important;
+}
+
+/* ── Expander header ── */
+.streamlit-expanderHeader,
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    color: #2A2118 !important;
+    opacity: 1 !important;
 }
 
 /* ── Primary button (Run Scan) ── */
