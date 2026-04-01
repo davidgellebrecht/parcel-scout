@@ -158,8 +158,6 @@ hr {
 }
 
 /* ── Expander header ── */
-/* Target the summary element and ALL its descendants — Streamlit wraps the label
-   in various element types across versions (span, div, p, text node). */
 [data-testid="stExpander"] summary {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
@@ -174,7 +172,12 @@ hr {
     color: #2A2118 !important;
     opacity: 1 !important;
 }
-/* Tint the native Streamlit SVG chevron to match the gold theme */
+/* Hide ONLY the Material Icons glyph span — it renders as "_arro" when Montserrat
+   is forced on it by the global font rule. Target by class name, not all spans. */
+[data-testid="stExpander"] summary span[class*="material"] {
+    display: none !important;
+}
+/* Tint the SVG chevron gold (some Streamlit builds use SVG instead of span) */
 [data-testid="stExpander"] summary svg {
     color: #8B6914 !important;
     fill: #8B6914 !important;
