@@ -10,10 +10,11 @@ FILTERS = {
 }
 
 # ─── Region ───────────────────────────────────────────────────────────────────
-REGION = "Province of Siena, Italy"
+REGION = "Gaiole in Chianti (demo area)"
 # Bounding box: (south_lat, west_lon, north_lat, east_lon)
-# Province of Siena only — ~1/9th the area of Tuscany, keeps Overpass queries fast
-REGION_BBOX = (42.63, 10.90, 43.52, 11.93)
+# TEMPORARY DEMO BBOX — ~5×8 km around Gaiole in Chianti for a fast trial scan
+# Revert to (42.63, 10.90, 43.52, 11.93) for full Province of Siena
+REGION_BBOX = (43.38, 11.42, 43.43, 11.50)
 
 # ─── Thresholds ───────────────────────────────────────────────────────────────
 AIRPORT_MAX_DRIVE_MINS   = 60      # minutes
