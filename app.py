@@ -158,33 +158,26 @@ hr {
 }
 
 /* ── Expander header ── */
-[data-testid="stExpander"] summary p {
+/* Target the summary element and ALL its descendants — Streamlit wraps the label
+   in various element types across versions (span, div, p, text node). */
+[data-testid="stExpander"] summary {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
     color: #2A2118 !important;
     opacity: 1 !important;
 }
-/* Hide the Material Icons arrow span entirely — the global font rule overrides
-   Material Icons with Montserrat, rendering the glyph as "_arro" literal text.
-   Replace with a CSS › character that rotates on open/close instead. */
-[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary * {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    color: #2A2118 !important;
+    opacity: 1 !important;
+}
+/* Tint the native Streamlit SVG chevron to match the gold theme */
 [data-testid="stExpander"] summary svg {
-    display: none !important;
-}
-[data-testid="stExpander"] summary::before {
-    content: '›';
-    font-family: 'Cormorant Garamond', serif !important;
-    font-size: 1.3rem;
-    color: #8B6914;
-    margin-right: 0.5rem;
-    display: inline-block;
-    transition: transform 0.2s ease;
-    line-height: 1;
-    vertical-align: middle;
-}
-[data-testid="stExpander"] details[open] > summary::before {
-    transform: rotate(90deg);
+    color: #8B6914 !important;
+    fill: #8B6914 !important;
 }
 
 /* ── Expander body (open state) ── */
@@ -335,9 +328,9 @@ hr {
 
 /* ── Warning box ── */
 .stWarning, [data-testid="stAlert"].stWarning,
-div[data-baseweb="notification"]:not(.stSuccess):not(.stError):not(.stInfo) {
-    background-color: #FFF176 !important;
-    border: 1px solid #F9A825 !important;
+[data-testid="stAlert"]:has([data-testid="stAlertDynamicIcon-warning"]) {
+    background-color: #FFF9E6 !important;
+    border: 1px solid #C8860A !important;
     border-radius: 0 !important;
     opacity: 1 !important;
 }
@@ -1074,9 +1067,17 @@ st.markdown("---")
 
 if "parcels" not in st.session_state or not st.session_state.parcels:
     if not st.session_state.get("parcels"):
-        st.info(
-            "Configure your parameters above and click **Run Off-Market Scan** to begin.  \n"
-            "The scan queries OpenStreetMap and takes approximately 3–4 minutes for a full province."
+        st.markdown(
+            '<div style="background:#F0EBE0 !important;border:1px solid #D4C4A0 !important;'
+            'border-radius:0 !important;padding:1rem 1.2rem !important;">'
+            '<p style="color:#2A2118 !important;font-family:Montserrat,sans-serif !important;'
+            'font-size:0.82rem !important;margin:0 0 0.3rem 0 !important;">'
+            'Configure your parameters above and click <strong>Run Off-Market Scan</strong> to begin.</p>'
+            '<p style="color:#5C4B2A !important;font-family:Montserrat,sans-serif !important;'
+            'font-size:0.78rem !important;margin:0 !important;">'
+            'The scan queries OpenStreetMap and takes approximately 3–4 minutes for a full province.</p>'
+            '</div>',
+            unsafe_allow_html=True,
         )
     else:
         st.warning("No parcels passed all hard filters. Try relaxing some filters above.")
