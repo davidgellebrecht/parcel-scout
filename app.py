@@ -249,6 +249,18 @@ hr {
     letter-spacing: 0.04em !important;
 }
 
+/* ── Hero image strip ── */
+[data-testid="stImage"] img {
+    object-fit: cover;
+    height: 200px;
+    width: 100%;
+    display: block;
+}
+[data-testid="stImage"] {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 /* ── Dataframe ── */
 .stDataFrame { border: 1px solid #D4C4A0 !important; }
 </style>
@@ -583,6 +595,18 @@ def build_rankings_df(parcels: list) -> pd.DataFrame:
 st.markdown('<span class="gb-label">Giovanni Bonelli Group</span>', unsafe_allow_html=True)
 st.markdown("# Parcel Scout")
 st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+
+# ── Hero image strip ──────────────────────────────────────────────────────────
+HERO_IMAGES = [
+    "assets/024_YountLeapEstate.webp",
+    "assets/026_YountLeapEstate.webp",
+    "assets/058_YountLeapEstate.webp",
+    "assets/36-Napa-Valley-Luxury-Home-Hillary-Ryan.webp",
+]
+img_cols = st.columns(4, gap="small")
+for col, path in zip(img_cols, HERO_IMAGES):
+    col.image(path, use_container_width=True)
+
 st.markdown("---")
 
 # ── Region selector ───────────────────────────────────────────────────────────
