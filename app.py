@@ -793,6 +793,38 @@ for i, sm in enumerate(paid_layers):
                 st.markdown(f"**Without credentials:** {'Returns limited data (free components still run)' if info['degrades'] else 'Returns no data — layer contributes nothing to the score'}")
                 st.markdown(f"**Setup:** {info['setup']}")
 
+# ── Premium layer reference table ────────────────────────────────────────────
+with st.expander("Premium Layer Reference — costs, free tiers & setup guide"):
+    ref_rows = []
+    for sm in paid_layers:
+        _, cfg_key = sm["config"]
+        info = PREMIUM_LAYER_INFO.get(cfg_key, {})
+        ref_rows.append({
+            "Layer":            sm["label"],
+            "What it detects":  sm["desc"],
+            "API source":       info.get("api", "—"),
+            "Cost":             info.get("cost", "—"),
+            "Free tier":        info.get("free_tier") or "None",
+            "Without key":      "Limited data (free components run)" if info.get("degrades") else "No data — layer inactive",
+            "Credential needed": LAYER_CRED.get(cfg_key, "—"),
+            "Setup":            info.get("setup", "—"),
+        })
+    st.dataframe(
+        pd.DataFrame(ref_rows),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Layer":             st.column_config.TextColumn(width="small"),
+            "What it detects":   st.column_config.TextColumn(width="large"),
+            "API source":        st.column_config.TextColumn(width="medium"),
+            "Cost":              st.column_config.TextColumn(width="medium"),
+            "Free tier":         st.column_config.TextColumn(width="medium"),
+            "Without key":       st.column_config.TextColumn(width="medium"),
+            "Credential needed": st.column_config.TextColumn(width="small"),
+            "Setup":             st.column_config.TextColumn(width="large"),
+        },
+    )
+
 # ── Credential warning block ──────────────────────────────────────────────────
 missing_creds = []
 for cfg_key, cred_var in LAYER_CRED.items():
