@@ -399,8 +399,8 @@ SIGNAL_META = [
         "label":  "Satellite Neglect",
         "group":  "layer",
         "config": ("LAYERS", "satellite_neglect"),
-        "paid":   False,
-        "badge":  "free trial",
+        "paid":   True,
+        "badge":  "paid",
         "desc":   "NDVI satellite data shows vegetation vigor below neighboring parcels — the first measurable sign of absentee ownership.",
     },
     {
@@ -505,6 +505,13 @@ FILTER_META = [
 # and used to build the pre-scan credential warning block.
 
 PREMIUM_LAYER_INFO = {
+    "satellite_neglect": {
+        "api":       "Sentinel Hub — European Space Agency Copernicus programme",
+        "cost":      "Free 30-day trial; paid plans from €25/month",
+        "free_tier": "30-day trial available — no credit card required during trial period",
+        "setup":     "Register at sentinel-hub.com → create an OAuth client → set SENTINEL_HUB_CLIENT_ID and SENTINEL_HUB_CLIENT_SECRET in Streamlit Secrets (or config.py for local use).",
+        "degrades":  False,
+    },
     "permit_paralysis": {
         "api":       "Albo Pretorio — Italian municipal permit registry",
         "cost":      "Commercial aggregator required — no public pricing; contact a vendor",
@@ -551,6 +558,7 @@ PREMIUM_LAYER_INFO = {
 
 # Maps each paid layer's config key → the credential variable it needs
 LAYER_CRED = {
+    "satellite_neglect":   "SENTINEL_HUB_CLIENT_ID",
     "permit_paralysis":    "ALBO_PRETORIO_API_KEY",
     "zoning_alchemy":      "ALBO_PRETORIO_API_KEY",
     "hospitality_fatigue": "TRIPADVISOR_API_KEY",
@@ -799,58 +807,49 @@ for i, fm in enumerate(FILTER_META):
 
 st.markdown("---")
 
-# ── Acquisition Signals (Group 2) ─────────────────────────────────────────────
-st.markdown('<span class="gb-label">Acquisition Signals</span>', unsafe_allow_html=True)
-st.caption("Annotation only — parcels are never excluded by these.")
+# ── Signals (all free — group2 + free layers combined) ────────────────────────
+st.markdown('<span class="gb-label">Signals</span>', unsafe_allow_html=True)
+st.caption("All free — annotation only, never excludes parcels. Toggle to adjust the Opportunity Score.")
 
-g2_signals = [sm for sm in SIGNAL_META if sm["group"] == "group2"]
-sc1, sc2   = st.columns(2)
-g2_state   = {}
-for i, sm in enumerate(g2_signals):
+g2_state     = {}
+layer_state  = {}
+free_signals = [sm for sm in SIGNAL_META if not sm["paid"]]
+
+sc1, sc2, sc3 = st.columns(3)
+for i, sm in enumerate(free_signals):
     group, cfg_key = sm["config"]
-    col = sc1 if i % 2 == 0 else sc2
+    col = [sc1, sc2, sc3][i % 3]
     with col:
-        g2_state[cfg_key] = st.checkbox(
-            sm["label"],
-            value=getattr(config, group)[cfg_key],
-            key=f"sig_{sm['key']}",
-        )
+        if sm["group"] == "group2":
+            g2_state[cfg_key] = st.checkbox(
+                sm["label"],
+                value=getattr(config, group)[cfg_key],
+                key=f"sig_{sm['key']}",
+            )
+        else:
+            layer_state[cfg_key] = st.checkbox(
+                sm["label"],
+                value=True,
+                key=f"layer_{sm['key']}",
+            )
         st.caption(sm["desc"])
 
 st.markdown("---")
 
-# ── Acquisition Layers ────────────────────────────────────────────────────────
-st.markdown('<span class="gb-label">Acquisition Layers</span>', unsafe_allow_html=True)
-st.caption("Toggle layers to adjust the Opportunity Score in real time.")
+# ── Premium Layers ────────────────────────────────────────────────────────────
+st.markdown('<span class="gb-label">Premium Layers</span>', unsafe_allow_html=True)
+st.caption("Require API credentials — disabled by default. Enable when credentials are configured.")
 
-free_layers = [sm for sm in SIGNAL_META if sm["group"] == "layer" and not sm["paid"]]
-paid_layers = [sm for sm in SIGNAL_META if sm["group"] == "layer" and sm["paid"]]
-layer_state = {}
+paid_layers = [sm for sm in SIGNAL_META if sm["paid"]]
 
-# Free layers
-fl1, fl2, fl3 = st.columns(3)
-for i, sm in enumerate(free_layers):
-    group, cfg_key = sm["config"]
-    col = [fl1, fl2, fl3][i % 3]
-    with col:
-        layer_state[cfg_key] = st.checkbox(
-            sm["label"],
-            value=True,
-            key=f"layer_{sm['key']}",
-        )
-        st.caption(sm["desc"])
-
-# Paid layers — force off on first load by pre-seeding session state
+# Pre-seed session state to default paid layers OFF
 for sm in paid_layers:
     if f"layer_{sm['key']}" not in st.session_state:
         st.session_state[f"layer_{sm['key']}"] = False
 
-st.markdown('<span class="gb-label" style="margin-top:1.2rem;">Premium Layers</span>', unsafe_allow_html=True)
-st.caption("Require a paid API subscription. Toggled off by default — enable when credentials are configured.")
-
 pl1, pl2, pl3 = st.columns(3)
 for i, sm in enumerate(paid_layers):
-    group, cfg_key = sm["config"]
+    _, cfg_key = sm["config"]
     col = [pl1, pl2, pl3][i % 3]
     info = PREMIUM_LAYER_INFO.get(cfg_key, {})
     with col:
