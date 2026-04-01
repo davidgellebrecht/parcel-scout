@@ -425,6 +425,65 @@ FILTER_META = [
     },
 ]
 
+# ── Premium layer info (setup instructions, cost, credential mapping) ─────────
+# Shown in "Setup & pricing" expanders under each paid layer checkbox,
+# and used to build the pre-scan credential warning block.
+
+PREMIUM_LAYER_INFO = {
+    "permit_paralysis": {
+        "api":       "Albo Pretorio — Italian municipal permit registry",
+        "cost":      "Commercial aggregator required — no public pricing; contact a vendor",
+        "free_tier": None,
+        "setup":     "Contract a commercial Albo Pretorio data provider, then set ALBO_PRETORIO_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  False,
+    },
+    "zoning_alchemy": {
+        "api":       "Albo Pretorio (permit intent) + Regione Toscana WFS (Zone E — free)",
+        "cost":      "Only the permit-keyword component requires a paid aggregator; Zone E check is always free",
+        "free_tier": "Zone E boundary check runs without any credentials",
+        "setup":     "Contract a commercial Albo Pretorio data provider, then set ALBO_PRETORIO_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  True,
+    },
+    "hospitality_fatigue": {
+        "api":       "TripAdvisor Content API",
+        "cost":      "Free up to 5,000 requests/month; paid tiers above that",
+        "free_tier": "5,000 requests/month — enough for typical scan volumes",
+        "setup":     "Register at tripadvisor.com/developers, generate an API key, then set TRIPADVISOR_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  False,
+    },
+    "terroir_score_delta": {
+        "api":       "Wine-Searcher API",
+        "cost":      "Free up to 100 searches/day; paid plans above that",
+        "free_tier": "100 searches/day free",
+        "setup":     "Register at wine-searcher.com/api, generate an API key, then set WINE_SEARCHER_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  False,
+    },
+    "succession_frag": {
+        "api":       "OpenAPI.it — Italian Catasto (cadastral co-owner records)",
+        "cost":      "Free tier available — no credit card required",
+        "free_tier": "Free tier at console.openapi.com",
+        "setup":     "Register at console.openapi.com → navigate to the Catasto section → copy your OAuth Bearer token → set OPENAPI_IT_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  False,
+    },
+    "owner_relocation": {
+        "api":       "OpenAPI.it — Italian Catasto (cadastral address) + fiscal code decode (always free)",
+        "cost":      "Catasto component only — free tier available at console.openapi.com",
+        "free_tier": "Fiscal code decode and website language detection run without any credentials",
+        "setup":     "Register at console.openapi.com → navigate to the Catasto section → copy your OAuth Bearer token → set OPENAPI_IT_KEY in Streamlit Secrets (or config.py for local use).",
+        "degrades":  True,
+    },
+}
+
+# Maps each paid layer's config key → the credential variable it needs
+LAYER_CRED = {
+    "permit_paralysis":    "ALBO_PRETORIO_API_KEY",
+    "zoning_alchemy":      "ALBO_PRETORIO_API_KEY",
+    "hospitality_fatigue": "TRIPADVISOR_API_KEY",
+    "terroir_score_delta": "WINE_SEARCHER_API_KEY",
+    "succession_frag":     "OPENAPI_IT_KEY",
+    "owner_relocation":    "OPENAPI_IT_KEY",
+}
+
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 def rescore(parcels: list, active_keys: list) -> list:
@@ -699,6 +758,7 @@ pl1, pl2, pl3 = st.columns(3)
 for i, sm in enumerate(paid_layers):
     group, cfg_key = sm["config"]
     col = [pl1, pl2, pl3][i % 3]
+    info = PREMIUM_LAYER_INFO.get(cfg_key, {})
     with col:
         layer_state[cfg_key] = st.checkbox(
             sm["label"],
@@ -706,6 +766,38 @@ for i, sm in enumerate(paid_layers):
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
+        if info:
+            with st.expander("Setup & pricing ›"):
+                st.markdown(f"**API source:** {info['api']}")
+                st.markdown(f"**Cost:** {info['cost']}")
+                if info.get("free_tier"):
+                    st.markdown(f"**Free tier:** {info['free_tier']}")
+                else:
+                    st.markdown("**Free tier:** None")
+                st.markdown(f"**Without credentials:** {'Returns limited data (free components still run)' if info['degrades'] else 'Returns no data — layer contributes nothing to the score'}")
+                st.markdown(f"**Setup:** {info['setup']}")
+
+# ── Credential warning block ──────────────────────────────────────────────────
+missing_creds = []
+for cfg_key, cred_var in LAYER_CRED.items():
+    if layer_state.get(cfg_key) and not getattr(config, cred_var, ""):
+        info = PREMIUM_LAYER_INFO[cfg_key]
+        label = next(sm["label"] for sm in SIGNAL_META if sm["config"][1] == cfg_key)
+        missing_creds.append((label, cred_var, info))
+
+if missing_creds:
+    # De-duplicate entries that share a credential (e.g. both OpenAPI.it layers)
+    seen_creds = set()
+    lines = []
+    for label, cred_var, info in missing_creds:
+        impact = "will return **limited data** (free components still run)" if info["degrades"] else "will return **no data** and contribute nothing to scores"
+        lines.append(f"- **{label}** — needs `{cred_var}` — {impact}  \n  ↳ {info['setup']}")
+        seen_creds.add(cred_var)
+    st.warning(
+        f"**{len(missing_creds)} premium layer{'s' if len(missing_creds) > 1 else ''} enabled without credentials.**  \n"
+        "The scan will still run — but these layers will be inactive:\n\n" +
+        "\n\n".join(lines)
+    )
 
 st.markdown("---")
 
