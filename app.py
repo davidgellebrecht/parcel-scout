@@ -16,6 +16,7 @@ import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
+import streamlit_shadcn_ui as ui
 import config
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
@@ -827,9 +828,9 @@ filter_state = {}
 for i, fm in enumerate(FILTER_META):
     col = fc1 if i % 2 == 0 else fc2
     with col:
-        filter_state[fm["key"]] = st.checkbox(
-            fm["label"],
-            value=config.FILTERS[fm["key"]],
+        filter_state[fm["key"]] = ui.switch(
+            default_checked=config.FILTERS[fm["key"]],
+            label=fm["label"],
             key=f"filter_{fm['key']}",
         )
         st.caption(fm["desc"])
@@ -850,15 +851,15 @@ for i, sm in enumerate(free_signals):
     col = [sc1, sc2, sc3][i % 3]
     with col:
         if sm["group"] == "group2":
-            g2_state[cfg_key] = st.checkbox(
-                sm["label"],
-                value=getattr(config, group)[cfg_key],
+            g2_state[cfg_key] = ui.switch(
+                default_checked=getattr(config, group)[cfg_key],
+                label=sm["label"],
                 key=f"sig_{sm['key']}",
             )
         else:
-            layer_state[cfg_key] = st.checkbox(
-                sm["label"],
-                value=True,
+            layer_state[cfg_key] = ui.switch(
+                default_checked=True,
+                label=sm["label"],
                 key=f"layer_{sm['key']}",
             )
         st.caption(sm["desc"])
@@ -882,9 +883,9 @@ for i, sm in enumerate(paid_layers):
     col = [pl1, pl2, pl3][i % 3]
     info = PREMIUM_LAYER_INFO.get(cfg_key, {})
     with col:
-        layer_state[cfg_key] = st.checkbox(
-            sm["label"],
-            value=False,
+        layer_state[cfg_key] = ui.switch(
+            default_checked=False,
+            label=sm["label"],
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
