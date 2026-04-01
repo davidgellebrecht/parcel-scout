@@ -155,15 +155,20 @@ hr {
 }
 
 /* ── Expander header ── */
-/* Target ONLY the text paragraph — NOT summary itself or any span.
-   Setting font-family on <summary> or <span> would override the Material Icons
-   font on the arrow glyph, causing it to render as "_arro" literal text. */
+/* Text label only — font-family set on summary p, not on summary itself */
 [data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
     color: #2A2118 !important;
     opacity: 1 !important;
+}
+/* Restore Material Icons font on the icon span — the global [class*="css"] rule
+   overrides it with Montserrat, causing the glyph to render as "_arro" text.
+   summary > span is the direct-child icon span; summary p is the text. */
+[data-testid="stExpander"] summary > span,
+[data-testid="stExpander"] summary > div > span:first-child {
+    font-family: 'Material Icons', 'Material Icons Rounded', 'Material Icons Outlined' !important;
 }
 
 /* ── Expander body (open state) ── */
