@@ -1171,7 +1171,12 @@ else:
     with tab_raw:
         st.caption("Complete field dump for all parcels, sorted by Opportunity Score.")
         all_keys = list(dict.fromkeys(k for p in parcels for k in p.keys()))
-        df_raw   = pd.DataFrame([{k: p.get(k, "") for k in all_keys} for p in parcels])
+        # Convert every value to string — parcel dicts contain mixed types
+        # (None, lists, dicts from layer data) that pyarrow can't serialize.
+        df_raw = pd.DataFrame([
+            {k: str(p.get(k, "")) if p.get(k) is not None else "" for k in all_keys}
+            for p in parcels
+        ])
         st.dataframe(df_raw, use_container_width=True, height=500)
 
 # ── Footer ────────────────────────────────────────────────────────────────────
