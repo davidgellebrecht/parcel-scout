@@ -173,6 +173,20 @@ hr {
     border: 1px solid #D4C4A0 !important;
     padding: 1rem !important;
 }
+/* Expander body text — force dark, override Streamlit's blue-gray defaults */
+[data-testid="stExpander"] details > div p,
+[data-testid="stExpander"] details > div span,
+[data-testid="stExpander"] details > div li,
+[data-testid="stExpander"] details > div strong,
+[data-testid="stExpander"] details > div a,
+[data-testid="stExpander"] .streamlit-expanderContent p,
+[data-testid="stExpander"] .streamlit-expanderContent span,
+[data-testid="stExpander"] .streamlit-expanderContent strong {
+    color: #2A2118 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+    opacity: 1 !important;
+}
 
 /* ── Primary button (Run Scan) ── */
 .stButton > button[kind="primary"] {
