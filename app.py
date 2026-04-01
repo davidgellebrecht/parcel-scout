@@ -858,51 +858,57 @@ for i, sm in enumerate(paid_layers):
 
 # ── Premium layer reference table ────────────────────────────────────────────
 with st.expander("Premium Layer Reference — costs, free tiers & setup guide"):
-    rows_html = ""
+    td = 'style="padding:0.55rem 0.9rem; border-bottom:1px solid #EDE6D8; vertical-align:top;"'
+    th = 'style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem; color:#F4EFE6;"'
+
+    header = (
+        '<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'
+        'font-size:0.75rem;color:#2A2118;border:1px solid #D4C4A0;">'
+        '<thead><tr style="background:#2A2118;">'
+        f'<th {th}>Layer</th>'
+        f'<th {th}>API Source</th>'
+        f'<th {th}>Cost</th>'
+        f'<th {th}>Free Tier</th>'
+        f'<th {th}>Without Key</th>'
+        f'<th {th}>Credential</th>'
+        '</tr></thead><tbody>'
+    )
+
+    body = ""
     for i, sm in enumerate(paid_layers):
         _, cfg_key = sm["config"]
-        info       = PREMIUM_LAYER_INFO.get(cfg_key, {})
-        free_tier  = info.get("free_tier") or '<span style="color:#7A6A55;">None</span>'
-        without    = (
-            '<span style="color:#8B6914;">Limited data</span> — free components still run'
+        info      = PREMIUM_LAYER_INFO.get(cfg_key, {})
+        free_tier = info.get("free_tier") or '<span style="color:#7A6A55;">None</span>'
+        without   = (
+            '<span style="color:#8B6914;font-weight:600;">Limited data</span>'
+            ' — free components still run'
             if info.get("degrades") else
-            '<span style="color:#9B3A2A;">No data</span> — layer inactive'
+            '<span style="color:#9B3A2A;font-weight:600;">No data</span>'
+            ' — layer inactive'
         )
         row_bg = "#FFFFFF" if i % 2 == 0 else "#FAF6EF"
-        rows_html += f"""
-        <tr style="background:{row_bg};">
-            <td style="font-weight:600; white-space:nowrap;">{sm['label']}</td>
-            <td>{info.get('api', '—')}</td>
-            <td>{info.get('cost', '—')}</td>
-            <td>{free_tier}</td>
-            <td>{without}</td>
-            <td style="font-family:monospace; font-size:0.70rem; color:#8B6914;">{LAYER_CRED.get(cfg_key, '—')}</td>
-        </tr>"""
+        cred   = f'<code style="font-size:0.68rem;color:#8B6914;">{LAYER_CRED.get(cfg_key, "—")}</code>'
+        body += (
+            f'<tr style="background:{row_bg};">'
+            f'<td {td} style="padding:0.55rem 0.9rem;border-bottom:1px solid #EDE6D8;'
+            f'vertical-align:top;font-weight:600;white-space:nowrap;">{sm["label"]}</td>'
+            f'<td {td}>{info.get("api", "—")}</td>'
+            f'<td {td}>{info.get("cost", "—")}</td>'
+            f'<td {td}>{free_tier}</td>'
+            f'<td {td}>{without}</td>'
+            f'<td {td}>{cred}</td>'
+            '</tr>'
+        )
 
-    st.markdown(f"""
-    <table style="
-        width:100%; border-collapse:collapse;
-        font-family:'Montserrat',sans-serif; font-size:0.75rem;
-        color:#2A2118; border:1px solid #D4C4A0;
-    ">
-      <thead>
-        <tr style="background:#2A2118; color:#F4EFE6;">
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">Layer</th>
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">API Source</th>
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">Cost</th>
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">Free Tier</th>
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">Without Key</th>
-          <th style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem;">Credential</th>
-        </tr>
-      </thead>
-      <tbody style="line-height:1.5;">
-        {rows_html}
-      </tbody>
-    </table>
-    <p style="font-size:0.65rem; color:#7A6A55; margin-top:0.6rem;">
-      Set credentials in Streamlit Secrets (cloud) or <code style="color:#8B6914;">config.py</code> (local).
-    </p>
-    """, unsafe_allow_html=True)
+    footer = (
+        '</tbody></table>'
+        '<p style="font-size:0.65rem;color:#7A6A55;margin-top:0.6rem;">'
+        'Set credentials in <strong>Streamlit Secrets</strong> (cloud) or '
+        '<code style="color:#8B6914;">config.py</code> (local).'
+        '</p>'
+    )
+
+    st.markdown(header + body + footer, unsafe_allow_html=True)
 
 # ── Credential warning block ──────────────────────────────────────────────────
 missing_creds = []
