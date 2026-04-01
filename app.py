@@ -172,10 +172,20 @@ hr {
     color: #2A2118 !important;
     opacity: 1 !important;
 }
-/* Hide the icon span — it renders as "_arro" when Montserrat is forced on it.
-   The label text lives in a <p>, so hiding all <span> in summary is safe. */
+/* The "_arro" glyph appears because the global Montserrat rule overrides
+   the Material Icons font on the icon span. Fix: shrink the span's font-size
+   to 0 so the glyph text is invisible. The label <p> inside overrides this
+   with its own explicit font-size, so it stays readable. */
 [data-testid="stExpander"] summary span {
-    display: none !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+}
+[data-testid="stExpander"] summary p {
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    color: #2A2118 !important;
+    line-height: 1.4 !important;
 }
 /* Tint the SVG chevron gold */
 [data-testid="stExpander"] summary svg {
