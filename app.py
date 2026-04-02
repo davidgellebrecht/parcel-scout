@@ -652,15 +652,15 @@ LAYER_CRED = {
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 def rescore(parcels: list, active_keys: list) -> list:
-    # Always score out of ALL_SIGNAL_KEYS (13) so scores are comparable regardless
-    # of how many signals are toggled on. Inactive signals simply don't fire.
-    total = len(ALL_SIGNAL_KEYS)
+    # Score out of active signals only — "passed X of X checks you ran"
+    total = len(active_keys)
     result = []
     for p in parcels:
         p = dict(p)
-        fired = sum(1 for k in active_keys if p.get(k))
+        fired = sum(1 for k in active_keys if p.get(k)) if total else 0
         p["opportunity_score"] = round((fired / total) * 100, 1) if total else 0.0
         p["signals_fired"]     = fired
+        p["signals_total"]     = total
         result.append(p)
     return sorted(result, key=lambda x: x["opportunity_score"], reverse=True)
 
@@ -1182,9 +1182,10 @@ else:
     total_raw = st.session_state.get("total_raw", 0)
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Parcels Matched",  len(parcels), help=f"{total_raw:,} total parcels scanned")
-    m2.metric("Top Score",        f"{max(scores):.1f}/100")
-    m3.metric("Average Score",    f"{sum(scores)/len(scores):.1f}/100")
-    m4.metric("Signals Active",   f"{len(active_keys)}/13")
+    n_active = len(active_keys)
+    m2.metric("Top Score",        f"{max(scores):.0f}%", help=f"Percentage of active signals fired ({n_active} signals running)")
+    m3.metric("Average Score",    f"{sum(scores)/len(scores):.0f}%")
+    m4.metric("Signals Active",   f"{n_active} of 13", help="Enable more signals to deepen the analysis")
     if total_raw:
         st.caption(
             f"Scanned **{total_raw:,}** total parcels in {st.session_state.get('scan_region', config.REGION)}"
@@ -1274,7 +1275,7 @@ else:
                     f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid #EDE6D8;">'
                     f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
                     f'letter-spacing:0.18em;text-transform:uppercase;color:{score_clr};margin-bottom:0.2rem;">'
-                    f'Score {score:.1f} / 100</div>'
+                    f'Score {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))})</div>'
                     f'<div style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:1.35rem;'
                     f'color:#2A2118;line-height:1.25;">{name[:55]}</div>'
                     f'</div>',
@@ -1334,7 +1335,7 @@ else:
                 f'color:#2A2118;line-height:1.1;margin-top:0.15rem;">{name}</div>'
                 f'<div style="font-family:Montserrat,sans-serif;font-size:0.68rem;color:{score_clr};'
                 f'font-weight:600;margin-top:0.25rem;letter-spacing:0.05em;">'
-                f'Opportunity Score: {score:.1f} / 100</div></div>',
+                f'Opportunity Score: {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))} signals)</div></div>',
                 unsafe_allow_html=True,
             )
 
