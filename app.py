@@ -39,6 +39,10 @@ from rank import (
     signals_fired_list,
 )
 
+# ── Demo mode ─────────────────────────────────────────────────────────────────
+# Set to False to hide the demo button entirely.
+DEMO_MODE = True
+
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Parcel Scout — Giovanni Bonelli Group",
@@ -354,6 +358,29 @@ hr {
     opacity: 1 !important;
 }
 
+
+/* ── Demo button (red, only in the column that has .demo-marker) ── */
+[data-testid="column"]:has(.demo-marker) button {
+    background-color: #B71C1C !important;
+    color: #FFFFFF !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.62rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    border: none !important;
+    border-radius: 0 !important;
+    width: 100% !important;
+    padding: 0.9rem 1rem !important;
+    animation: demo-pulse 2.5s ease-in-out infinite;
+}
+[data-testid="column"]:has(.demo-marker) button:hover {
+    background-color: #7F0000 !important;
+}
+@keyframes demo-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(183,28,28,0.5); }
+    50%       { box-shadow: 0 0 0 6px rgba(183,28,28,0); }
+}
 
 /* ── Hero image strip ── */
 [data-testid="stImage"] img {
@@ -809,8 +836,51 @@ def build_rankings_df(parcels: list) -> pd.DataFrame:
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<span class="gb-label">Giovanni Bonelli Group</span>', unsafe_allow_html=True)
-st.markdown("# Parcel Scout")
-st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+
+if DEMO_MODE:
+    _h_left, _h_right = st.columns([2, 1])
+    with _h_left:
+        st.markdown("# Parcel Scout")
+        st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+    with _h_right:
+        st.markdown('<div class="demo-marker"></div>', unsafe_allow_html=True)
+        demo_btn = st.button(
+            "▶  Demo for Michael Kennedy — Click Here",
+            key="demo_kennedy_btn",
+            use_container_width=True,
+        )
+else:
+    st.markdown("# Parcel Scout")
+    st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+    demo_btn = False
+
+# ── Demo preset — fires when demo button is clicked ───────────────────────────
+if demo_btn:
+    # Province
+    st.session_state["province_select"] = "Province of Siena"
+    # Hard filters — all ON
+    st.session_state["filter_proximity_to_airport"]  = True
+    st.session_state["filter_agricultural_land"]     = True
+    st.session_state["filter_min_square_footage"]    = True
+    st.session_state["filter_historical_designation"] = True
+    # Free signals — only DOCG wine zone and Napa Neighbor (fast, no extra queries)
+    st.session_state["sig_g2_premium_wine_zone"]  = True
+    st.session_state["sig_g2_distress_signal"]    = False
+    st.session_state["sig_g2_succession_signal"]  = False
+    st.session_state["sig_g2_lodging_overlay"]    = False
+    st.session_state["layer_layer_napa_neighbor_signal"]  = True
+    st.session_state["layer_layer_digital_ghost_signal"]  = False
+    # Premium layers — all OFF
+    st.session_state["layer_layer_satellite_neglect_signal"]   = False
+    st.session_state["layer_layer_permit_paralysis_signal"]    = False
+    st.session_state["layer_layer_zoning_alchemy_signal"]      = False
+    st.session_state["layer_layer_hospitality_fatigue_signal"] = False
+    st.session_state["layer_layer_terroir_score_delta_signal"] = False
+    st.session_state["layer_layer_succession_frag_signal"]     = False
+    st.session_state["layer_layer_owner_relocation_signal"]    = False
+    # Flag to auto-fire the scan on next rerun
+    st.session_state["demo_run_trigger"] = True
+    st.rerun()
 
 # ── Hero image strip ──────────────────────────────────────────────────────────
 HERO_IMAGES = [
@@ -836,6 +906,7 @@ selected_province = st.selectbox(
     options=province_names,
     index=default_idx,
     label_visibility="collapsed",
+    key="province_select",
 )
 
 # Patch config for selected province
@@ -1020,7 +1091,13 @@ if st.session_state.get("scan_time"):
 run_btn = st.button("Run Off-Market Scan", type="primary", use_container_width=True)
 
 # ── Trigger scan ──────────────────────────────────────────────────────────────
-if run_btn:
+_demo_trigger = st.session_state.pop("demo_run_trigger", False)
+if run_btn or _demo_trigger:
+    # Demo mode: override region to the fast mini-bbox around Gaiole in Chianti
+    if _demo_trigger:
+        config.REGION_BBOX = (43.41, 11.42, 43.48, 11.55)
+        config.REGION      = "Chianti Classico (Demo)"
+
     st.session_state.scan_log    = []
     st.session_state.scan_region = config.REGION
     t0 = time.time()
