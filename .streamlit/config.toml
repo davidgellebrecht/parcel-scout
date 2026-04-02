@@ -1,10 +1,10 @@
 [theme]
-primaryColor        = "#4CAF82"       # sage green — Italian estate / nature palette
-backgroundColor     = "#0E1117"       # dark background
-secondaryBackgroundColor = "#1A1D27"  # slightly lighter for sidebar and cards
-textColor           = "#F0F2F6"       # off-white
-font                = "sans serif"
+primaryColor             = "#8B6914"   # gold
+backgroundColor          = "#F4EFE6"   # parchment cream
+secondaryBackgroundColor = "#F0EBE0"   # slightly deeper cream
+textColor                = "#2A2118"   # dark espresso brown
+font                     = "sans serif"
 
 [server]
-headless            = true            # required for Streamlit Community Cloud
-enableCORS          = false
+headless    = true    # required for Streamlit Community Cloud
+enableCORS  = false

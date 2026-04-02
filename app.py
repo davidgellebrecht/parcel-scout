@@ -178,7 +178,6 @@ hr {
    with its own explicit font-size, so it stays readable. */
 [data-testid="stExpander"] summary span {
     font-size: 0 !important;
-    line-height: 0 !important;
 }
 [data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
