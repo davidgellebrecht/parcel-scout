@@ -652,11 +652,13 @@ LAYER_CRED = {
 # ── Score helpers ─────────────────────────────────────────────────────────────
 
 def rescore(parcels: list, active_keys: list) -> list:
-    total = len(active_keys)
+    # Always score out of ALL_SIGNAL_KEYS (13) so scores are comparable regardless
+    # of how many signals are toggled on. Inactive signals simply don't fire.
+    total = len(ALL_SIGNAL_KEYS)
     result = []
     for p in parcels:
         p = dict(p)
-        fired = sum(1 for k in active_keys if p.get(k)) if total else 0
+        fired = sum(1 for k in active_keys if p.get(k))
         p["opportunity_score"] = round((fired / total) * 100, 1) if total else 0.0
         p["signals_fired"]     = fired
         result.append(p)
