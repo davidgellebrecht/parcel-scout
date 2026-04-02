@@ -63,8 +63,13 @@ FIRE_LOOKBACK_YEARS        = 10    # years of EFFIS fire history to include
 OPENAPI_IT_KEY = ""
 
 # ─── API ──────────────────────────────────────────────────────────────────────
-OVERPASS_URL     = "https://overpass-api.de/api/interpreter"
-OVERPASS_TIMEOUT = 180   # seconds; raise if queries time out on slow connections
+# Three public Overpass mirrors — tried in order if the first is overloaded.
+OVERPASS_FALLBACK_URLS = [
+    "https://overpass-api.de/api/interpreter",        # primary (DE)
+    "https://overpass.kumi.systems/api/interpreter",   # mirror (AT)
+    "https://overpass.openstreetmap.ru/api/interpreter",  # mirror (RU)
+]
+OVERPASS_TIMEOUT = 60    # seconds per attempt; 3 attempts × 3 URLs before giving up
 
 # ─── 9-Layer Acquisition Engine ───────────────────────────────────────────────
 # Toggle each layer True (active) or False (skip).

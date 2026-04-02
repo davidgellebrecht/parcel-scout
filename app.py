@@ -162,33 +162,16 @@ hr {
 }
 
 /* ── Expander header ── */
-[data-testid="stExpander"] summary {
-    font-family: 'Montserrat', sans-serif !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    color: #2A2118 !important;
-    opacity: 1 !important;
-}
-[data-testid="stExpander"] summary * {
-    font-family: 'Montserrat', sans-serif !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    color: #2A2118 !important;
-    opacity: 1 !important;
-}
-/* The "_arro" glyph appears because the global Montserrat rule overrides
-   the Material Icons font on the icon span. Fix: shrink the span's font-size
-   to 0 so the glyph text is invisible. The label <p> inside overrides this
-   with its own explicit font-size, so it stays readable. */
-[data-testid="stExpander"] summary span {
-    font-size: 0 !important;
-}
+/* Only target the text <p> inside summary — NOT the parent span or summary
+   itself. If font-family is set on summary or summary *, it inherits into
+   the Material Icons icon span and renders the chevron glyph as "_arro". */
 [data-testid="stExpander"] summary p {
     font-family: 'Montserrat', sans-serif !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
     color: #2A2118 !important;
     line-height: 1.4 !important;
+    opacity: 1 !important;
 }
 /* Tint the SVG chevron gold */
 [data-testid="stExpander"] summary svg {
@@ -788,8 +771,8 @@ def build_map(parcels: list) -> folium.Map:
           <div style="font-size:12px;font-weight:500;margin:4px 0 8px;">{name[:50]}</div>
           <div style="font-size:10px;color:#7A6A55;margin-bottom:6px;">
             {p.get('primary_crop_type','').title()} &nbsp;·&nbsp;
-            {p.get('parcel_acres',0):.1f} acres &nbsp;·&nbsp;
-            {p.get('dist_airport_km',0):.1f} km to {p.get('airport_iata','')}
+            {p.get('parcel_acres',0):.0f} acres &nbsp;·&nbsp;
+            {p.get('dist_airport_km',0):.0f} km to {p.get('airport_iata','')}
           </div>
           <div style="margin-top:8px;">{sig_html}</div>
           <div style="margin-top:10px;font-size:10px;">

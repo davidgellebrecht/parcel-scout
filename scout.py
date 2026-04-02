@@ -28,35 +28,45 @@ import config
 
 def _overpass(query: str, retries: int = 3, backoff: int = 15) -> dict:
     """POST an Overpass QL query and return the parsed JSON response.
-    Retries up to `retries` times on 5xx errors, waiting `backoff` seconds between attempts."""
-    for attempt in range(1, retries + 1):
-        try:
-            resp = requests.post(
-                config.OVERPASS_URL,
-                data={"data": query},
-                timeout=config.OVERPASS_TIMEOUT + 10,
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except requests.exceptions.Timeout:
-            print(f"  WARNING: Overpass timed out (attempt {attempt}/{retries}).")
-        except requests.exceptions.HTTPError as exc:
-            if resp.status_code == 429 and attempt < retries:
-                wait = backoff * 2   # rate-limit: back off longer
-                print(f"  WARNING: Overpass rate-limited (attempt {attempt}/{retries}) — waiting {wait}s...")
-                time.sleep(wait)
-                continue
-            if resp.status_code >= 500 and attempt < retries:
-                print(f"  WARNING: Overpass {resp.status_code} (attempt {attempt}/{retries}) — retrying in {backoff}s...")
-                time.sleep(backoff)
-                continue
-            print(f"  ERROR: Overpass API error — {exc}")
-            sys.exit(1)
-        except requests.exceptions.RequestException as exc:
-            print(f"  ERROR: Overpass API request failed — {exc}")
-            sys.exit(1)
-    print(f"  ERROR: Overpass API failed after {retries} attempts. Try again later or increase OVERPASS_TIMEOUT.")
-    sys.exit(1)
+
+    Tries each URL in config.OVERPASS_FALLBACK_URLS in turn. For each URL,
+    retries up to `retries` times on timeouts or 5xx errors. If every URL
+    is exhausted, returns an empty result set instead of crashing the app.
+    """
+    http_timeout = config.OVERPASS_TIMEOUT + 10  # extra buffer for HTTP overhead
+
+    for url in config.OVERPASS_FALLBACK_URLS:
+        for attempt in range(1, retries + 1):
+            try:
+                resp = requests.post(url, data={"data": query}, timeout=http_timeout)
+                resp.raise_for_status()
+                return resp.json()
+            except requests.exceptions.Timeout:
+                print(f"  WARNING: Overpass timed out at {url} (attempt {attempt}/{retries}).")
+                if attempt < retries:
+                    time.sleep(backoff)
+            except requests.exceptions.HTTPError as exc:
+                code = resp.status_code
+                if code == 429:
+                    wait = backoff * 2
+                    print(f"  WARNING: Overpass rate-limited at {url} (attempt {attempt}/{retries}) — waiting {wait}s...")
+                    if attempt < retries:
+                        time.sleep(wait)
+                elif code >= 500:
+                    print(f"  WARNING: Overpass {code} at {url} (attempt {attempt}/{retries}) — retrying in {backoff}s...")
+                    if attempt < retries:
+                        time.sleep(backoff)
+                else:
+                    print(f"  WARNING: Overpass HTTP {code} at {url} — skipping to next mirror.")
+                    break  # non-retriable error; try next URL immediately
+            except requests.exceptions.RequestException as exc:
+                print(f"  WARNING: Overpass request failed at {url} (attempt {attempt}/{retries}) — {exc}")
+                if attempt < retries:
+                    time.sleep(backoff)
+        print(f"  WARNING: Exhausted all attempts at {url} — trying next mirror...")
+
+    print("  ERROR: All Overpass mirrors failed. Returning empty result set — parcel data may be incomplete.")
+    return {"elements": []}
 
 
 def _bbox() -> str:
@@ -375,7 +385,7 @@ def fetch_tourism_nodes() -> list:
     s, w, n, e = config.REGION_BBOX
     bb = f"{s - 0.1},{w - 0.1},{n + 0.1},{e + 0.1}"
     query = f"""
-[out:json][timeout:60];
+[out:json][timeout:{config.OVERPASS_TIMEOUT}];
 (
   node["tourism"~"hotel|guest_house|hostel|chalet|apartment|bed_and_breakfast|camp_site",i]({bb});
   way["tourism"~"hotel|guest_house|chalet|apartment",i]({bb});
