@@ -1232,112 +1232,31 @@ else:
     # ── Property Cards ────────────────────────────────────────────────────────
     with tab_rank:
         active_dossier = st.session_state.get("active_dossier", None)
-        card_cols = st.columns(3)
 
-        for idx, p in enumerate(parcels):
-            col       = card_cols[idx % 3]
+        def render_report(idx, p):
+            """Render the full-width Intelligence Report panel for a parcel."""
             score     = p["opportunity_score"]
-            name      = (p.get("name") or "").strip() or f"{p.get('primary_crop_type','').replace('_',' ').title()} Parcel" or f"Parcel #{idx+1}"
-            lat       = p.get("lat", 43.45)
-            lon       = p.get("lon", 11.48)
+            name      = (p.get("name") or p.get("gps_coordinates", f"Parcel #{idx+1}"))
             fired     = signals_fired_list(p)
-            acres     = int(round(p.get("parcel_acres", 0)))
-            airport   = f"{int(round(p.get('dist_airport_km', 0)))} km · {p.get('airport_iata', '')}"
-            crop      = p.get("primary_crop_type", "").replace("_", " ").title() or "—"
-            heritage  = p.get("closest_historic_tag", "").title() or "—"
-            score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
-            is_open   = (active_dossier == idx)
-
-            with col:
-                # ── Map thumbnail ──────────────────────────────────────────
-                osm_link = p.get("osm_url", f"https://www.openstreetmap.org/#map=15/{lat}/{lon}")
-                st.markdown(
-                    f'<a href="{osm_link}" target="_blank" style="text-decoration:none;">'
-                    f'<div style="width:100%;height:155px;background:#E8E0CE;margin-bottom:0;'
-                    f'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-                    f'border:1px solid #D4C4A0;cursor:pointer;">'
-                    f'<div style="font-size:1.6rem;margin-bottom:0.4rem;">🗺</div>'
-                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.6rem;font-weight:600;'
-                    f'letter-spacing:0.12em;text-transform:uppercase;color:#5C4B2A;margin-bottom:0.25rem;">'
-                    f'{lat:.4f}, {lon:.4f}</div>'
-                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.55rem;color:#8B6914;'
-                    f'letter-spacing:0.08em;">View on OpenStreetMap ↗</div>'
-                    f'</div></a>',
-                    unsafe_allow_html=True,
-                )
-
-                # ── Score + title ──────────────────────────────────────────
-                st.markdown(
-                    f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid #EDE6D8;">'
-                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
-                    f'letter-spacing:0.18em;text-transform:uppercase;color:{score_clr};margin-bottom:0.2rem;">'
-                    f'Score {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))})</div>'
-                    f'<div style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:1.35rem;'
-                    f'color:#2A2118;line-height:1.25;">{name[:55]}</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-                # ── Key Intel ──────────────────────────────────────────────
-                st.markdown(
-                    f'<div style="padding:0.6rem 0;border-bottom:1px solid #EDE6D8;">'
-                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.52rem;font-weight:700;'
-                    f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;margin-bottom:0.4rem;">Key Intel</div>'
-                    f'<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;font-size:0.72rem;color:#3A2E22;">'
-                    f'<tr><td style="padding:2px 0;width:1.2rem;">⬜</td><td style="padding:2px 4px;color:#7A6A55;">Footprint</td><td style="padding:2px 0;text-align:right;font-weight:500;">{acres} acres</td></tr>'
-                    f'<tr><td style="padding:2px 0;">🌿</td><td style="padding:2px 4px;color:#7A6A55;">Soil / Use</td><td style="padding:2px 0;text-align:right;font-weight:500;">{crop}</td></tr>'
-                    f'<tr><td style="padding:2px 0;">✈</td><td style="padding:2px 4px;color:#7A6A55;">Airport</td><td style="padding:2px 0;text-align:right;font-weight:500;">{airport}</td></tr>'
-                    f'<tr><td style="padding:2px 0;">🏛</td><td style="padding:2px 4px;color:#7A6A55;">Heritage</td><td style="padding:2px 0;text-align:right;font-weight:500;">{heritage}</td></tr>'
-                    f'</table></div>',
-                    unsafe_allow_html=True,
-                )
-
-                # ── Signal chips ───────────────────────────────────────────
-                if fired:
-                    chips = "".join(
-                        f'<span style="display:inline-block;background:#E8F5E9;color:#2A4028;'
-                        f'border:1px solid #4A6741;font-family:Montserrat,sans-serif;'
-                        f'font-size:0.58rem;padding:2px 6px;margin:2px 2px 0 0;">✓ {sig}</span>'
-                        for sig in fired
-                    )
-                    st.markdown(f'<div style="padding:0.5rem 0 0.6rem;">{chips}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(
-                        '<div style="padding:0.5rem 0 0.6rem;font-family:Montserrat,sans-serif;'
-                        'font-size:0.7rem;color:#7A6A55;font-style:italic;">No signals fired</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                # ── Dossier button ─────────────────────────────────────────
-                btn_label = "Close Dossier  ✕" if is_open else "View Intelligence Dossier"
-                if st.button(btn_label, key=f"dossier_btn_{idx}", use_container_width=True):
-                    st.session_state.active_dossier = None if is_open else idx
-                    st.rerun()
-
-        # ── Full-width Intelligence Dossier panel ─────────────────────────────
-        if active_dossier is not None and active_dossier < len(parcels):
-            p     = parcels[active_dossier]
-            score = p["opportunity_score"]
-            name  = (p.get("name") or p.get("gps_coordinates", f"Parcel #{active_dossier+1}"))
-            fired = signals_fired_list(p)
             score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
 
-            st.markdown("---")
             st.markdown(
-                f'<div style="margin-bottom:1.2rem;">'
+                f'<div style="margin:0.8rem 0 1rem;padding:1.2rem 1.4rem;'
+                f'background:#F0EBE0;border:1px solid #D4C4A0;border-top:3px solid #8B6914;">'
                 f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
-                f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;">Intelligence Dossier</div>'
-                f'<div style="font-family:\'Cormorant Garamond\',serif;font-size:2.4rem;font-weight:300;'
+                f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;">Intelligence Report</div>'
+                f'<div style="font-family:\'Cormorant Garamond\',serif;font-size:2.2rem;font-weight:300;'
                 f'color:#2A2118;line-height:1.1;margin-top:0.15rem;">{name}</div>'
                 f'<div style="font-family:Montserrat,sans-serif;font-size:0.68rem;color:{score_clr};'
                 f'font-weight:600;margin-top:0.25rem;letter-spacing:0.05em;">'
-                f'Opportunity Score: {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))} signals)</div></div>',
+                f'Opportunity Score: {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))} signals)'
+                f'</div></div>',
                 unsafe_allow_html=True,
             )
 
             dc1, dc2, dc3 = st.columns(3)
-            dc1.metric("Opportunity Score", f"{score:.1f}/100",
-                help="0–100 score: each of the 13 signals is worth ~7.7 pts.")
+            dc1.metric("Opportunity Score", f"{score:.0f}%",
+                help="Percentage of active signals that fired for this parcel.")
             dc1.metric("Crop Type", p.get("primary_crop_type", "").title(),
                 help="Primary land-use type from OpenStreetMap tags.")
             dc2.metric("Parcel Size", f"{p.get('parcel_acres',0):.0f} acres",
@@ -1378,6 +1297,87 @@ else:
                         "Detail": str(p.get(detail_key, "")),
                     })
                 st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
+
+        # Render cards in rows of 3; inject report immediately after the active row
+        row_size = 3
+        for row_start in range(0, len(parcels), row_size):
+            row_parcels = parcels[row_start:row_start + row_size]
+            cols = st.columns(row_size)
+
+            for col_idx, (col, p) in enumerate(zip(cols, row_parcels)):
+                idx       = row_start + col_idx
+                score     = p["opportunity_score"]
+                name      = (p.get("name") or "").strip() or f"{p.get('primary_crop_type','').replace('_',' ').title()} Parcel" or f"Parcel #{idx+1}"
+                lat       = p.get("lat", 43.45)
+                lon       = p.get("lon", 11.48)
+                fired     = signals_fired_list(p)
+                acres     = int(round(p.get("parcel_acres", 0)))
+                airport   = f"{int(round(p.get('dist_airport_km', 0)))} km · {p.get('airport_iata', '')}"
+                crop      = p.get("primary_crop_type", "").replace("_", " ").title() or "—"
+                heritage  = p.get("closest_historic_tag", "").title() or "—"
+                score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
+                is_open   = (active_dossier == idx)
+
+                with col:
+                    osm_link = p.get("osm_url", f"https://www.openstreetmap.org/#map=15/{lat}/{lon}")
+                    st.markdown(
+                        f'<a href="{osm_link}" target="_blank" style="text-decoration:none;">'
+                        f'<div style="width:100%;height:155px;background:#E8E0CE;margin-bottom:0;'
+                        f'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+                        f'border:1px solid #D4C4A0;cursor:pointer;">'
+                        f'<div style="font-size:1.6rem;margin-bottom:0.4rem;">🗺</div>'
+                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.6rem;font-weight:600;'
+                        f'letter-spacing:0.12em;text-transform:uppercase;color:#5C4B2A;margin-bottom:0.25rem;">'
+                        f'{lat:.4f}, {lon:.4f}</div>'
+                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.55rem;color:#8B6914;'
+                        f'letter-spacing:0.08em;">View on OpenStreetMap ↗</div>'
+                        f'</div></a>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid #EDE6D8;">'
+                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
+                        f'letter-spacing:0.18em;text-transform:uppercase;color:{score_clr};margin-bottom:0.2rem;">'
+                        f'Score {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))})</div>'
+                        f'<div style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:1.35rem;'
+                        f'color:#2A2118;line-height:1.25;">{name[:55]}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f'<div style="padding:0.6rem 0;border-bottom:1px solid #EDE6D8;">'
+                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.52rem;font-weight:700;'
+                        f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;margin-bottom:0.4rem;">Key Intel</div>'
+                        f'<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;font-size:0.72rem;color:#3A2E22;">'
+                        f'<tr><td style="padding:2px 0;width:1.2rem;">⬜</td><td style="padding:2px 4px;color:#7A6A55;">Footprint</td><td style="padding:2px 0;text-align:right;font-weight:500;">{acres} acres</td></tr>'
+                        f'<tr><td style="padding:2px 0;">🌿</td><td style="padding:2px 4px;color:#7A6A55;">Soil / Use</td><td style="padding:2px 0;text-align:right;font-weight:500;">{crop}</td></tr>'
+                        f'<tr><td style="padding:2px 0;">✈</td><td style="padding:2px 4px;color:#7A6A55;">Airport</td><td style="padding:2px 0;text-align:right;font-weight:500;">{airport}</td></tr>'
+                        f'<tr><td style="padding:2px 0;">🏛</td><td style="padding:2px 4px;color:#7A6A55;">Heritage</td><td style="padding:2px 0;text-align:right;font-weight:500;">{heritage}</td></tr>'
+                        f'</table></div>',
+                        unsafe_allow_html=True,
+                    )
+                    if fired:
+                        chips = "".join(
+                            f'<span style="display:inline-block;background:#E8F5E9;color:#2A4028;'
+                            f'border:1px solid #4A6741;font-family:Montserrat,sans-serif;'
+                            f'font-size:0.58rem;padding:2px 6px;margin:2px 2px 0 0;">✓ {sig}</span>'
+                            for sig in fired
+                        )
+                        st.markdown(f'<div style="padding:0.5rem 0 0.6rem;">{chips}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(
+                            '<div style="padding:0.5rem 0 0.6rem;font-family:Montserrat,sans-serif;'
+                            'font-size:0.7rem;color:#7A6A55;font-style:italic;">No signals fired</div>',
+                            unsafe_allow_html=True,
+                        )
+                    btn_label = "Close Report  ✕" if is_open else "View Intelligence Report"
+                    if st.button(btn_label, key=f"dossier_btn_{idx}", use_container_width=True):
+                        st.session_state.active_dossier = None if is_open else idx
+                        st.rerun()
+
+            # After each row: inject report if this row contains the active card
+            if active_dossier is not None and row_start <= active_dossier < row_start + row_size:
+                render_report(active_dossier, parcels[active_dossier])
 
     # ── Map ───────────────────────────────────────────────────────────────────
     with tab_map:
