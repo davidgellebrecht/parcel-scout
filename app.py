@@ -426,7 +426,6 @@ hr {
 # ── Tuscany provinces ─────────────────────────────────────────────────────────
 # Bounding box format: (south_lat, west_lon, north_lat, east_lon)
 TUSCANY_PROVINCES = {
-    "Chianti Classico (Quick Demo)": (43.41, 11.42, 43.48, 11.55),
     "Province of Siena":         (42.63, 10.90, 43.52, 11.93),
     "Province of Florence":      (43.50, 10.89, 44.12, 11.65),
     "Province of Arezzo":        (43.28, 11.42, 43.80, 12.09),
@@ -860,7 +859,7 @@ else:
 # ── Demo preset — fires when demo button is clicked ───────────────────────────
 if demo_btn:
     # Province
-    st.session_state["province_select"] = "Chianti Classico (Quick Demo)"
+    st.session_state["province_select"] = "Province of Lucca"
     # Hard filters — all ON
     st.session_state["filter_proximity_to_airport"]  = True
     st.session_state["filter_agricultural_land"]     = True
