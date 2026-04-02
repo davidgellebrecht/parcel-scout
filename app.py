@@ -1251,10 +1251,19 @@ else:
 
             with col:
                 # ── Map thumbnail ──────────────────────────────────────────
-                map_url = f"https://staticmap.openstreetmap.de/staticmap.php?center={lat},{lon}&zoom=14&size=400x220"
+                osm_link = p.get("osm_url", f"https://www.openstreetmap.org/#map=15/{lat}/{lon}")
                 st.markdown(
-                    f'<div style="width:100%;height:155px;overflow:hidden;background:#D4C4A0;margin-bottom:0;">'
-                    f'<img src="{map_url}" style="width:100%;height:155px;object-fit:cover;display:block;" /></div>',
+                    f'<a href="{osm_link}" target="_blank" style="text-decoration:none;">'
+                    f'<div style="width:100%;height:155px;background:#E8E0CE;margin-bottom:0;'
+                    f'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+                    f'border:1px solid #D4C4A0;cursor:pointer;">'
+                    f'<div style="font-size:1.6rem;margin-bottom:0.4rem;">🗺</div>'
+                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.6rem;font-weight:600;'
+                    f'letter-spacing:0.12em;text-transform:uppercase;color:#5C4B2A;margin-bottom:0.25rem;">'
+                    f'{lat:.4f}, {lon:.4f}</div>'
+                    f'<div style="font-family:Montserrat,sans-serif;font-size:0.55rem;color:#8B6914;'
+                    f'letter-spacing:0.08em;">View on OpenStreetMap ↗</div>'
+                    f'</div></a>',
                     unsafe_allow_html=True,
                 )
 
