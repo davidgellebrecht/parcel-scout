@@ -858,6 +858,25 @@ def build_map(parcels: list) -> folium.Map:
         min_zoom=11,
     ).add_to(m)
 
+    # ── Italian Land Registry overlay (Agenzia delle Entrate — Catasto) ─────────
+    # Shows official cadastral parcel boundaries from the Italian government land
+    # registry. These are the legal property lines, not OSM estimates.
+    # Free INSPIRE-compliant WMS — no authentication required.
+    # Only renders at zoom 15+ (cadastral detail requires street-level zoom).
+    folium.WmsTileLayer(
+        url="https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php",
+        layers="CP.CadastralParcel",   # INSPIRE Cadastral Parcels theme
+        fmt="image/png",
+        transparent=True,
+        name="Cadastral Parcels (Catasto)",
+        show=False,       # off by default — useful when zoomed into a specific estate
+        opacity=0.80,
+        attr='<a href="https://www.agenziaentrate.gov.it" target="_blank">Agenzia delle Entrate — Catasto d\'Italia</a>',
+        # Cadastral detail only exists at very high zoom. Requesting tiles at lower
+        # zoom levels returns blank PNGs from the server.
+        min_zoom=15,
+    ).add_to(m)
+
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
 
     # ── Soil legend ───────────────────────────────────────────────────────────
@@ -1453,8 +1472,8 @@ else:
     # ── Map ───────────────────────────────────────────────────────────────────
     with tab_map:
         st.caption(
-            "Pins sized and coloured by Opportunity Score.  "
-            "Olive ≥ 30  ·  Gold 15–29  ·  Grey < 15.  Click any pin for details."
+            "Parcels drawn to scale · coloured by Opportunity Score.  "
+            "Olive ≥ 30  ·  Gold 15–29  ·  Grey < 15.  Click any parcel for details."
         )
         m = build_map(parcels)
         st_folium(m, use_container_width=True, height=560)

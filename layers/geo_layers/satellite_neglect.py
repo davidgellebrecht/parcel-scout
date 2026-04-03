@@ -226,9 +226,13 @@ class SatelliteNeglectLayer(BaseLayer):
     paid  = False   # Sentinel Hub has a free 30-day trial; thereafter ~€25/month
 
     # Growing season dates — May through September captures peak vine canopy.
-    # Adjust for other crop types if needed.
-    DATE_FROM = "2024-05-01"
-    DATE_TO   = "2024-09-30"
+    # Computed dynamically so the layer always uses the most recent complete
+    # growing season without needing a manual update each year.
+    _now      = __import__("datetime").date.today()
+    # If we're before October (season not yet finished), use the previous year.
+    _year     = _now.year if _now.month >= 10 else _now.year - 1
+    DATE_FROM = f"{_year}-05-01"
+    DATE_TO   = f"{_year}-09-30"
 
     def run(self, parcel: dict) -> dict:
         """

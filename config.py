@@ -27,6 +27,9 @@ TARGET_AIRPORTS = {
     "PSA": {"name": "Pisa Galileo Galilei",    "lat": 43.6839, "lon": 10.3927},
     "FLR": {"name": "Florence Peretola",        "lat": 43.8099, "lon": 11.2051},
     "SAY": {"name": "Siena Ampugnano",          "lat": 43.2260, "lon": 11.2570},
+    "GRS": {"name": "Grosseto Baccarini",       "lat": 42.7597, "lon": 11.0719},
+    # GRS covers the Maremma / southern Tuscany area (Morellino, Montecucco, Bolgheri).
+    # Small regional airport; charter and light-aircraft traffic common for estate buyers.
 }
 
 # ─── Derived constants (do not edit) ──────────────────────────────────────────
@@ -58,6 +61,14 @@ PREMIUM_DOCG_ZONES = {
     "Chianti Classico":             (43.35, 11.10, 43.65, 11.68),  # Brolio, Badia a Coltibuono, Isole e Olena
     "Bolgheri (Super Tuscan)":      (43.17, 10.55, 43.31, 10.80),  # Sassicaia, Ornellaia, Masseto — DOC not DOCG
                                                                      # but consistently trades $150–$500+
+    "Morellino di Scansano":        (42.60, 11.20, 42.80, 11.45),  # DOCG 2007; Maremma flagship red.
+                                                                     # Top producers (Moris Farms, Rocca di Frassinello)
+                                                                     # regularly at $40–80; cellar-door prices suppressed
+                                                                     # relative to Montalcino — attractive value gap.
+    "Montecucco Sangiovese":        (42.80, 11.25, 42.97, 11.52),  # DOCG 2011; directly north of Montalcino.
+                                                                     # Same galestro/alberese soils, fraction of the price.
+                                                                     # Collemassari, Salustri — land prices still 30–50%
+                                                                     # below Brunello zone; fastest-appreciating area in Tuscany.
 }
 
 DISTRESS_SEARCH_RADIUS_M   = 500   # metres — OSM abandoned element must be within this distance
