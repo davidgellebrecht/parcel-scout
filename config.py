@@ -44,9 +44,9 @@ ROAD_DISTANCE_FACTOR = 1.30
 # Set any toggle to False to skip that signal's query and leave the column blank.
 GROUP2 = {
     "premium_wine_zone": True,   # parcel falls within a Siena DOCG zone where wines sell at $150+
-    "distress_signal":   False,  # TEMP disabled — EFFIS fire query times out; re-enable for full scan
-    "succession_signal": False,  # TEMP DEMO OFF — skips extra Overpass query to keep demo fast
-    "lodging_overlay":   False,  # TEMP DEMO OFF — skips extra Overpass query to keep demo fast
+    "distress_signal":   True,   # EFFIS fire history + OSM abandoned land
+    "succession_signal": True,   # named estate (Podere/Tenuta/etc.) on or near parcel
+    "lodging_overlay":   True,   # tourism/hospitality node within 750 m
 }
 
 # Premium wine zones where top bottles regularly trade at $150+.
@@ -97,19 +97,20 @@ OVERPASS_TIMEOUT = 60    # seconds per attempt; 3 attempts × 3 URLs before givi
 # Layers marked PAID FEATURE require a commercial API subscription to return real data.
 # When credentials are absent they return a safe placeholder — no crash, no data loss.
 LAYERS = {
-    # ── Group 1: Geo Layers — run via scout.py ─────────────────────────────────
-    "satellite_neglect":   False,  # TEMP DEMO OFF — Sentinel Hub OAuth too slow without credentials
-    "permit_paralysis":    False,  # PAID FEATURE — no key configured
-    "zoning_alchemy":      False,  # PAID FEATURE — no key configured
-    "napa_neighbor":       True,   # LVMH/Antinori proximity ripple — free, hardcoded math, instant
-    # ── Group 2: Brand / Sentiment Layers — run via sentiment.py ──────────────
-    "hospitality_fatigue": False,  # PAID FEATURE — no key configured
-    "digital_ghost":       False,  # TEMP DEMO OFF — WHOIS + Wayback per parcel too slow for demo
-    "succession_stress":   False,  # free — Wayback CDX + OpenCorporates; off by default (network calls per parcel)
-    "terroir_score_delta": False,  # PAID FEATURE — no key configured
-    # ── Group 3: Legal Layers — run via acquisitions.py ───────────────────────
-    "succession_frag":     False,  # PAID FEATURE — no key configured
-    "owner_relocation":    False,  # PAID FEATURE — no key configured
+    # ── Group 1: Geo Layers ────────────────────────────────────────────────────
+    "satellite_neglect":   False,  # needs SENTINEL_HUB_CLIENT_ID + SECRET
+    "permit_paralysis":    True,   # OSM proxy active; upgrades to Albo Pretorio when key set
+    "zoning_alchemy":      True,   # free Zone E (GEOscopio WFS) always runs
+    "napa_neighbor":       True,   # free — hardcoded marquee acquisition ripple
+    # ── Group 2: Brand / Sentiment Layers ─────────────────────────────────────
+    "hospitality_fatigue": False,  # needs TRIPADVISOR_API_KEY
+    "digital_ghost":       True,   # free — Wayback CDX + WHOIS domain check
+    "succession_stress":   True,   # free — Wayback CDX + OpenCorporates Italian registry
+    "terroir_score_delta": False,  # needs WINE_SEARCHER_API_KEY
+    # ── Group 3: Legal Layers ─────────────────────────────────────────────────
+    "succession_frag":     False,  # needs OPENAPI_IT_KEY
+    "owner_relocation":    True,   # free fiscal code + website language always run;
+                                   # cadastral contact address upgrades when OPENAPI_IT_KEY set
 }
 
 # ─── Layer credentials ────────────────────────────────────────────────────────
