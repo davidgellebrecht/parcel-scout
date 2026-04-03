@@ -46,13 +46,18 @@ GROUP2 = {
     "lodging_overlay":   False,  # TEMP DEMO OFF — skips extra Overpass query to keep demo fast
 }
 
-# Premium DOCG zones in Province of Siena where top bottles regularly trade at $150+.
-# Hardcoded as static geographic facts — OSM carries no DOCG boundary data for this region.
+# Premium wine zones where top bottles regularly trade at $150+.
+# Hardcoded as static geographic facts — OSM carries no DOCG/DOC boundary data.
 # Bbox format: (south_lat, west_lon, north_lat, east_lon)
+# Bounds are tightened relative to the administrative commune boundaries to reduce
+# false positives; they do not perfectly match official DOCG shapefiles (which
+# require a paid GIS download from Italy's Mipaaf — a future improvement).
 PREMIUM_DOCG_ZONES = {
-    "Brunello di Montalcino":       (42.82, 11.35, 43.15, 11.70),  # Biondi Santi, Poggio di Sotto, etc.
-    "Vino Nobile di Montepulciano": (43.07, 11.75, 43.17, 11.95),  # Avignonesi, Poliziano
-    "Chianti Classico (Siena)":     (43.28, 11.27, 43.52, 11.68),  # Brolio, Badia a Coltibuono, etc.
+    "Brunello di Montalcino":       (42.97, 11.35, 43.13, 11.62),  # Biondi Santi, Poggio di Sotto, Argiano, etc.
+    "Vino Nobile di Montepulciano": (43.07, 11.75, 43.17, 11.95),  # Avignonesi, Poliziano, Valdipiatta
+    "Chianti Classico":             (43.35, 11.10, 43.65, 11.68),  # Brolio, Badia a Coltibuono, Isole e Olena
+    "Bolgheri (Super Tuscan)":      (43.17, 10.55, 43.31, 10.80),  # Sassicaia, Ornellaia, Masseto — DOC not DOCG
+                                                                     # but consistently trades $150–$500+
 }
 
 DISTRESS_SEARCH_RADIUS_M   = 500   # metres — OSM abandoned element must be within this distance

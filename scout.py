@@ -142,8 +142,10 @@ def fetch_historic_sites() -> list:
   relation["historic"]({bb});
   node["heritage"]({bb});
   way["heritage"]({bb});
-  node["building"~"castle|monastery|chapel|church|villa|barn|ruins|farmhouse"]({bb});
-  way["building"~"castle|monastery|chapel|church|villa|barn|ruins|farmhouse"]({bb});
+  node["building"~"castle|monastery|chapel|church|villa|barn|ruins|farmhouse|house|mill|granary|stable|tower"]({bb});
+  way["building"~"castle|monastery|chapel|church|villa|barn|ruins|farmhouse|house|mill|granary|stable|tower"]({bb});
+  node["building"="historic"]({bb});
+  way["building"="historic"]({bb});
   node["ruins"="yes"]({bb});
   way["ruins"="yes"]({bb});
 );
@@ -510,9 +512,12 @@ HIGH_CONFIDENCE_TAGS = {
     "castle", "monastery", "chapel", "church", "villa", "barn",
     "farmhouse", "manor", "tower", "fort", "cathedral", "abbey",
     "palace", "fortification", "city_gate", "crypt", "convent",
+    # Common Tuscan rural structure types added from MiC heritage taxonomy:
+    "house", "fortified_house", "mill", "granary", "stable", "dovecote",
+    "watermill", "windmill", "oratory", "loggia",
 }
 # Structures that clearly exist but may be ruinous or indeterminate in scale.
-MEDIUM_CONFIDENCE_TAGS = {"ruins", "building", "tower"}
+MEDIUM_CONFIDENCE_TAGS = {"ruins", "building", "tower", "historic"}
 
 
 def _heritage_confidence(tag_type: str) -> str:

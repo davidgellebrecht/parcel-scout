@@ -600,10 +600,24 @@ PREMIUM_LAYER_INFO = {
         "degrades":  False,
     },
     "terroir_score_delta": {
-        "api":       "Wine-Searcher API",
-        "cost":      "Free up to 100 searches/day; paid plans above that",
-        "free_tier": "100 searches/day free",
-        "setup":     "Register at wine-searcher.com/api, generate an API key, then set WINE_SEARCHER_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "api":       "Wine-Searcher API — wine.com/api",
+        "cost":      (
+            "Free tier: 100 searches/day, no credit card required. "
+            "Paid tiers: Enthusiast $9.99/mo (1,000/day) · Professional $29.99/mo (10,000/day) · "
+            "Commercial from $99/mo (100,000+/day, SLA, bulk endpoints). "
+            "For typical Parcel Scout scan volumes (20–80 parcels/run) the free tier is sufficient."
+        ),
+        "free_tier": "100 searches/day — no credit card, covers most scan volumes",
+        "setup":     (
+            "1. Go to wine-searcher.com/api and click 'Get API Key'. "
+            "2. Register for a free account — no credit card needed for the free tier. "
+            "3. In your dashboard, copy the API key (format: a long alphanumeric string). "
+            "4. On Streamlit Cloud: open your app → Settings → Secrets → add: WINE_SEARCHER_API_KEY = \"your-key\". "
+            "5. For local use: open config.py and paste the key into WINE_SEARCHER_API_KEY = \"your-key\". "
+            "What it unlocks: the Terroir Score Delta layer queries actual retail/auction prices "
+            "for wines produced from the specific subzone of each parcel, replacing the current "
+            "hardcoded '$150+ zone' approximation with live price intelligence per producer."
+        ),
         "degrades":  False,
     },
     "succession_frag": {

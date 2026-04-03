@@ -64,16 +64,19 @@ import config
 from layers.base import BaseLayer
 
 
-# ── Marquee acquisitions in Province of Siena / Tuscany ─────────────────────
+# ── Marquee acquisitions in Tuscany ──────────────────────────────────────────
 # Coordinates are the approximate centroid of each estate.
-# Add new entries here as deals are announced.
+# Add new entries here as deals are announced in the trade press.
+# Sources: Decanter, Wine Spectator, WineNews, official company announcements.
+# NOTE: entries with year <= (current_year - RECENT_YEARS) score 0.1 (zone anchor
+# only); entries within the RECENT_YEARS window score on a distance decay curve.
 MARQUEE_ACQUISITIONS = [
-    # ── Antinori ──────────────────────────────────────────────────────────────
+    # ── Antinori — long-term zone anchors (pre-2016, score 0.1) ───────────────
     {
         "name":   "Pèppoli (Chianti Classico)",
         "buyer":  "Antinori",
         "lat":    43.5070, "lon": 11.4011,
-        "year":   1987,   # long-term anchor — sets the zone benchmark
+        "year":   1987,
         "source": "antinori.it",
     },
     {
@@ -90,15 +93,7 @@ MARQUEE_ACQUISITIONS = [
         "year":   1990,
         "source": "antinori.it",
     },
-    # ── LVMH / Hennessy ───────────────────────────────────────────────────────
-    {
-        "name":   "Terredora di Paolo (Montalcino adjacent)",
-        "buyer":  "LVMH",
-        "lat":    43.0020, "lon": 11.4890,
-        "year":   2021,
-        "source": "Wine Spectator Oct 2021",
-    },
-    # ── Frescobaldi ───────────────────────────────────────────────────────────
+    # ── Frescobaldi — long-term zone anchors ──────────────────────────────────
     {
         "name":   "Castelgiocondo (Brunello di Montalcino)",
         "buyer":  "Frescobaldi",
@@ -107,27 +102,89 @@ MARQUEE_ACQUISITIONS = [
         "source": "frescobaldi.com",
     },
     {
-        "name":   "Luce della Vite (Montalcino)",
+        "name":   "Luce della Vite (Brunello di Montalcino)",
         "buyer":  "Frescobaldi / Mondavi JV",
         "lat":    43.0350, "lon": 11.5020,
         "year":   1995,
         "source": "frescobaldi.com",
     },
+    {
+        "name":   "Ornellaia (Bolgheri)",
+        "buyer":  "Marchesi Frescobaldi",
+        "lat":    43.2336, "lon": 10.6170,
+        "year":   2005,
+        "source": "Wine Spectator 2005",
+    },
     # ── Allegrini ─────────────────────────────────────────────────────────────
     {
-        "name":   "Il Bruciato / Poggio al Tesoro (Bolgheri adjacent)",
+        "name":   "Il Bruciato / Poggio al Tesoro (Bolgheri)",
         "buyer":  "Allegrini",
         "lat":    43.2040, "lon": 10.6890,
         "year":   2002,
         "source": "allegrini.it",
     },
-    # ── Boutinot / Recent international capital ───────────────────────────────
+    # ── Avignonesi — international ownership transfer ─────────────────────────
+    {
+        "name":   "Avignonesi (Vino Nobile di Montepulciano)",
+        "buyer":  "Virginie Saverys (Belgium)",
+        "lat":    43.0930, "lon": 11.8470,
+        "year":   2009,
+        "source": "Vinous / Decanter",
+    },
+    # ── Argiano — South American capital enters Brunello ──────────────────────
+    {
+        "name":   "Argiano (Brunello di Montalcino)",
+        "buyer":  "André Esteves / BTG Pactual (Brazil)",
+        "lat":    43.0080, "lon": 11.4780,
+        "year":   2013,
+        "source": "Decanter 2013",
+    },
+    # ── EPI Group (France) — two acquisitions, both in active window ──────────
+    {
+        "name":   "Biondi Santi — Tenuta Greppo (Brunello di Montalcino)",
+        "buyer":  "EPI Group (France)",
+        "lat":    43.0510, "lon": 11.4940,
+        "year":   2016,
+        "source": "Decanter / Wine Spectator 2017",
+    },
+    {
+        "name":   "Isole e Olena (Chianti Classico)",
+        "buyer":  "EPI / Christofer Descours (France)",
+        "lat":    43.5300, "lon": 11.1700,
+        "year":   2022,
+        "source": "Wine Industry Advisor / WineNews June 2022",
+    },
+    # ── AtlasInvest — Belgian private equity enters Brunello ──────────────────
+    {
+        "name":   "Poggio Antico (Brunello di Montalcino)",
+        "buyer":  "AtlasInvest / Marcel Van Poecke (Belgium)",
+        "lat":    43.1010, "lon": 11.4370,
+        "year":   2017,
+        "source": "Decanter / Wine Spectator 2017",
+    },
+    # ── Castiglion del Bosco — sold by Ferragamo family, new owner undisclosed ─
+    {
+        "name":   "Castiglion del Bosco (Brunello di Montalcino)",
+        "buyer":  "Undisclosed international family office",
+        "lat":    43.0955, "lon": 11.4255,
+        "year":   2022,
+        "source": "WineNews / The Drinks Business March 2022",
+    },
+    # ── Boutinot — UK trade capital enters Chianti ────────────────────────────
     {
         "name":   "Podere Il Carnasciale (Chianti)",
         "buyer":  "Boutinot Group",
         "lat":    43.4350, "lon": 11.3550,
         "year":   2018,
         "source": "Decanter 2018",
+    },
+    # ── Valdipiatta — US hospitality capital enters Vino Nobile (2025) ────────
+    {
+        "name":   "Tenuta Valdipiatta (Vino Nobile di Montepulciano)",
+        "buyer":  "Michael Cioffi / Monteverdi Tuscany (USA)",
+        "lat":    43.1060, "lon": 11.7940,
+        "year":   2025,
+        "source": "Wine Spectator / The Drinks Business Jan 2025",
     },
 ]
 
