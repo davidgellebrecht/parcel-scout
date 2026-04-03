@@ -820,14 +820,14 @@ def build_map(parcels: list) -> folium.Map:
     # Source: Italian National Environmental Agency (ISPRA), 1:100,000 scale.
     # No authentication required — free public WMS.
     folium.WmsTileLayer(
-        url="https://wms.pcn.minambiente.it/ogc?map=/ms_ogc/wms/GEO_LITOLOGIA.map",
-        layers="GEO_LITOLOGIA",
+        url="https://sinacloud.isprambiente.it/arcgisgeo/services/geo/SGI_ISPRA_Geologia25k/MapServer/WMSServer",
+        layers="0",       # layer 0 = Unità geologiche (geological units)
         fmt="image/png",
         transparent=True,
         name="Soil Lithology (ISPRA)",
         show=False,       # off by default — enable via toggle top-right
         opacity=0.65,
-        attr='<a href="https://www.isprambiente.gov.it" target="_blank">ISPRA — Carta Litologica d\'Italia 1:100,000</a>',
+        attr='<a href="https://portalesgi.isprambiente.it" target="_blank">ISPRA — Carta Geologica d\'Italia 1:25,000</a>',
     ).add_to(m)
 
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
