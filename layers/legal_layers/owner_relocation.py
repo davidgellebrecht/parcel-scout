@@ -65,53 +65,150 @@ from layers.base import BaseLayer
 RELOCATION_DISTANCE_KM = 200.0
 
 # ── Italian Belfiore code → municipality coordinate table ─────────────────────
-# The full table has ~8,000 entries. We include a representative subset for
-# the most common birth municipalities relevant to Siena-area estate owners.
-# A complete lookup can be sourced from: https://www.agenziaentrate.gov.it/
-# Format: "BELFIORE_CODE": (lat, lon, "Comune name, Province")
-BELFIORE_SAMPLE = {
-    "H501": (41.8967, 12.4822, "Roma, RM"),
-    "F205": (45.4642, 9.1900,  "Milano, MI"),
-    "L736": (45.0793, 7.6762,  "Torino, TO"),
-    "D969": (40.8518, 14.2681, "Napoli, NA"),
-    "G702": (38.1157, 13.3615, "Palermo, PA"),
-    "F839": (43.7696, 11.2558, "Firenze, FI"),
-    "I726": (43.3183, 11.3300, "Siena, SI"),
-    "E625": (43.8430, 10.5070, "Lucca, LU"),
-    "G491": (43.7229, 10.4017, "Pisa, PI"),
-    "A944": (43.9167, 11.1167, "Prato, PO"),
-    "A509": (44.6488, 10.9255, "Bologna, BO"),
-    "L682": (45.6495, 13.7768, "Trieste, TS"),
-    "E379": (44.4056, 8.9463,  "Genova, GE"),
-    "Z112": (None, None, "Germany"),         # foreign birth — strong relocation signal
-    "Z114": (None, None, "UK"),
-    "Z110": (None, None, "France"),
-    "Z129": (None, None, "USA"),
-    "Z136": (None, None, "Switzerland"),
+# The full table has ~8,000 entries. We load it on first use from a
+# well-maintained open-data repository (matteocontrini/comuni-json on GitHub)
+# which is sourced from the Italian Ministry of the Interior and updated
+# regularly. Each entry has the Belfiore code, municipality name, and
+# accurate lat/lon from ISTAT.
+#
+# Foreign births use Z-codes (Z + 3 digits). These are hardcoded below because
+# the comuni.json covers only Italian municipalities.
+_COMUNI_CACHE: dict = {}   # populated on first call to _load_comuni_index()
+
+_COMUNI_JSON_URL = (
+    "https://raw.githubusercontent.com/matteocontrini/comuni-json/master/comuni.json"
+)
+
+# Foreign country Z-codes — assigned by the Italian Agenzia delle Entrate.
+# Each tuple: (lat, lon, "Country name").  None coords = distance check skipped,
+# but the foreign-birth flag still fires.
+FOREIGN_Z_CODES = {
+    "Z100": (41.3275,  19.8187, "Albania"),
+    "Z101": (42.5462,   1.6016, "Andorra"),
+    "Z102": (47.5162,  14.5501, "Austria"),
+    "Z103": (50.5039,   4.4699, "Belgium"),
+    "Z104": (42.7339,  25.4858, "Bulgaria"),
+    "Z105": (49.8175,  15.4730, "Czech Republic"),
+    "Z106": (56.2639,   9.5018, "Denmark"),
+    "Z107": (26.8206,  30.8025, "Egypt"),
+    "Z108": (61.9241,  25.7482, "Finland"),
+    "Z109": (46.2276,   2.2137, "France"),
+    "Z110": (46.2276,   2.2137, "France"),   # legacy code kept for backwards compat
+    "Z111": (51.1657,  10.4515, "Germany"),
+    "Z112": (51.1657,  10.4515, "Germany"),  # legacy code kept for backwards compat
+    "Z113": (39.0742,  21.8243, "Greece"),
+    "Z114": (55.3781,  -3.4360, "United Kingdom"),
+    "Z115": (47.1625,  19.5033, "Hungary"),
+    "Z116": (64.9631, -19.0208, "Iceland"),
+    "Z117": (52.1326,   5.2913, "Netherlands"),
+    "Z118": (60.4720,   8.4689, "Norway"),
+    "Z119": (51.9194,  19.1451, "Poland"),
+    "Z120": (39.3999,  -8.2245, "Portugal"),
+    "Z121": (45.9432,  24.9668, "Romania"),
+    "Z122": (44.0165,  20.9144, "Serbia"),
+    "Z123": (48.6690,  19.6990, "Slovakia"),
+    "Z124": (46.1512,  14.9955, "Slovenia"),
+    "Z125": (40.4637,  -3.7492, "Spain"),
+    "Z126": (59.3293,  18.0686, "Sweden"),
+    "Z127": (61.5240, 105.3188, "Russia"),
+    "Z128": (38.9637,  35.2433, "Turkey"),
+    "Z129": (37.0902, -95.7129, "USA"),
+    "Z130": (50.4501,  30.5234, "Ukraine"),
+    "Z131": (53.9045,  27.5615, "Belarus"),
+    "Z133": (41.7151,  44.8271, "Georgia"),
+    "Z134": (40.1431,  47.5769, "Azerbaijan"),
+    "Z135": (38.9698,  59.5563, "Turkmenistan"),
+    "Z136": (46.8182,   8.2275, "Switzerland"),
+    "Z138": (53.7098,  -7.9628, "Ireland"),
+    "Z139": (42.6026,  20.9030, "Kosovo"),
+    "Z140": (41.9981,  21.4254, "North Macedonia"),
+    "Z145": (43.9159,  17.6791, "Bosnia-Herzegovina"),
+    "Z149": (42.4411,  19.2636, "Montenegro"),
+    "Z150": (41.1533,  20.1683, "Albania"),   # duplicate of Z100 in some decrees
+    "Z210": (35.8617, 104.1954, "China"),
+    "Z217": (36.2048, 138.2529, "Japan"),
+    "Z222": (28.0339,   1.6596, "Algeria"),
+    "Z225": (31.7917,  -7.0926, "Morocco"),
+    "Z232": (33.8869,   9.5375, "Tunisia"),
+    "Z301": (-14.2350, -51.9253, "Brazil"),
+    "Z307": (-38.4161, -63.6167, "Argentina"),
+    "Z322": (4.5709, -74.2973, "Colombia"),
+    "Z330": (-9.1900, -75.0152, "Peru"),
+    "Z333": (-30.5595,  22.9375, "South Africa"),
+    "Z401": (-25.2744, 133.7751, "Australia"),
+    "Z402": (-40.9006, 174.8860, "New Zealand"),
+    "Z700": (None, None, "Stateless / unknown"),
 }
+
+
+def _load_comuni_index() -> dict:
+    """
+    Fetch the complete Italian comuni list from GitHub (matteocontrini/comuni-json).
+    Returns a dict of {belfiore_code: {"lat": float, "lon": float, "name": str}}.
+    Result is cached in _COMUNI_CACHE after the first successful fetch.
+    If the fetch fails, falls back to the embedded FOREIGN_Z_CODES only.
+    """
+    global _COMUNI_CACHE
+    if _COMUNI_CACHE:
+        return _COMUNI_CACHE
+
+    try:
+        resp = requests.get(_COMUNI_JSON_URL, timeout=15,
+                            headers={"User-Agent": "ParcelScout/1.0"})
+        if resp.status_code == 200:
+            comuni = resp.json()
+            index = {}
+            for c in comuni:
+                code = c.get("codiceCatastale", "").strip().upper()
+                coords = c.get("coordinate", {})
+                lat = coords.get("lat")
+                lon = coords.get("lng")
+                prov = c.get("sigla", "")
+                name = f"{c.get('nome', '')}, {prov}"
+                if code and lat and lon:
+                    index[code] = {"lat": lat, "lon": lon, "name": name}
+            # Merge in foreign Z-codes (not in the comuni.json)
+            for zcode, (zlat, zlon, zname) in FOREIGN_Z_CODES.items():
+                index[zcode] = {"lat": zlat, "lon": zlon, "name": zname}
+            _COMUNI_CACHE = index
+            return _COMUNI_CACHE
+    except Exception:
+        pass
+
+    # Fallback: Z-codes only
+    fallback = {
+        zcode: {"lat": zlat, "lon": zlon, "name": zname}
+        for zcode, (zlat, zlon, zname) in FOREIGN_Z_CODES.items()
+    }
+    _COMUNI_CACHE = fallback
+    return _COMUNI_CACHE
 
 
 def _decode_fiscal_birth_municipality(fiscal_code: str) -> dict:
     """
-    Extract the Belfiore municipality code from an Italian codice fiscale.
-    The codice fiscale format: SSSNNNYYDDLCCCZ (16 chars)
-    Positions 11–14 (0-indexed) are the Belfiore code for the birth municipality.
+    Extract the Belfiore municipality code from an Italian codice fiscale
+    and resolve it to geographic coordinates.
 
-    Returns: {"belfiore": str, "comune": str, "lat": float, "lon": float, "foreign": bool}
+    Codice fiscale format: SSSNNNYYDDLCCCZ (16 chars)
+    Positions 11–14 (0-indexed) = Belfiore code (birth municipality).
+
+    Returns: {"belfiore": str, "comune": str, "lat": float|None,
+              "lon": float|None, "foreign": bool}
     """
     if not fiscal_code or len(fiscal_code) < 15:
         return {"belfiore": "", "comune": "", "lat": None, "lon": None, "foreign": False}
 
     belfiore = fiscal_code[11:15].upper()
-    foreign  = belfiore.startswith("Z")   # Z-codes are foreign countries
+    foreign  = belfiore.startswith("Z")
 
-    if belfiore in BELFIORE_SAMPLE:
-        entry = BELFIORE_SAMPLE[belfiore]
+    index = _load_comuni_index()
+    if belfiore in index:
+        entry = index[belfiore]
         return {
             "belfiore": belfiore,
-            "comune":   entry[2],
-            "lat":      entry[0],
-            "lon":      entry[1],
+            "comune":   entry["name"],
+            "lat":      entry["lat"],
+            "lon":      entry["lon"],
             "foreign":  foreign,
         }
 

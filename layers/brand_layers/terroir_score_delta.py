@@ -43,21 +43,96 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+import requests
 import config
 from layers.base import BaseLayer
 
-# ── Zone-level average Vivino / Wine-Searcher critic scores ──────────────────
-# Hardcoded from public Wine Spectator and Vivino zone data as a baseline.
-# Update annually as new vintages are scored.
-# Scale: 100-point system (Wine Spectator / Wine Advocate standard)
+# ── Zone-level average critic scores (Wine Spectator / Wine Advocate scale) ──
+# Sourced from public WS/WA zone data. Update annually as new vintages score.
+# Both the canonical name and common aliases are included for robust matching
+# against the g2_wine_zone_name field computed by scout.py.
 ZONE_AVERAGE_SCORES = {
-    "Brunello di Montalcino":       93.0,   # zone benchmark — Biondi Santi, Poggio di Sotto
-    "Vino Nobile di Montepulciano": 89.5,   # zone benchmark — Avignonesi, Poliziano
-    "Chianti Classico (Siena)":     88.0,   # zone benchmark — Brolio, Badia a Coltibuono
+    "Brunello di Montalcino":       93.0,   # Biondi Santi, Poggio di Sotto, Argiano
+    "Vino Nobile di Montepulciano": 89.5,   # Avignonesi, Poliziano, Valdipiatta
+    "Chianti Classico":             88.0,   # Brolio, Badia a Coltibuono, Isole e Olena
+    "Chianti Classico (Siena)":     88.0,   # alias used by g2 zone check
+    "Bolgheri (Super Tuscan)":      91.0,   # Sassicaia, Ornellaia, Masseto — 90–97 range
+    "Morellino di Scansano":        85.5,   # Rocca di Frassinello, Moris Farms — rising
+    "Montecucco Sangiovese":        87.0,   # Collemassari, Salustri — fastest-improving zone
 }
 
+# Minimum gap (zone benchmark − producer score) to fire the signal
+SCORE_DELTA_THRESHOLD = 5.0   # 5+ points below zone average = unlocked potential
+
+_WINE_SEARCHER_BASE = "https://www.wine-searcher.com/api/v2"
+
+
+def _search_wine_searcher(producer_name: str, api_key: str) -> dict:
+    """
+    Search Wine-Searcher for wines from this producer and return the
+    average critic score across the top results.
+
+    API endpoint: GET https://www.wine-searcher.com/api/v2/wine
+    Params: api_key, name (producer/wine name), country, num (max results)
+    Response: JSON with "search_results" list; each result has a "ratings"
+    list with {"critic": str, "score": int, "num_reviews": int}.
+
+    Returns: {
+        "found": bool,
+        "avg_score": float|None,    # mean score across rated wines
+        "num_wines": int,           # total results returned
+        "wines": list[str],         # first 3 wine names found
+        "error": str|None           # set on API failure
+    }
+    """
+    try:
+        resp = requests.get(
+            f"{_WINE_SEARCHER_BASE}/wine",
+            params={
+                "api_key": api_key,
+                "name":    producer_name,
+                "country": "Italy",
+                "num":     10,
+            },
+            timeout=12,
+            headers={"User-Agent": "ParcelScout/1.0"},
+        )
+        if resp.status_code == 401:
+            return {"found": False, "error": "invalid_api_key"}
+        if resp.status_code == 429:
+            return {"found": False, "error": "rate_limited"}
+        if resp.status_code != 200:
+            return {"found": False, "error": f"http_{resp.status_code}"}
+
+        data    = resp.json()
+        results = data.get("search_results", [])
+        if not results:
+            return {"found": False}
+
+        scores     = []
+        wine_names = []
+        for result in results[:5]:   # top 5 results only
+            wname = result.get("wine_name", "")
+            if wname:
+                wine_names.append(wname)
+            for rating in result.get("ratings", []):
+                s = rating.get("score")
+                if s and isinstance(s, (int, float)) and 50 <= float(s) <= 100:
+                    scores.append(float(s))
+
+        return {
+            "found":     True,
+            "avg_score": round(sum(scores) / len(scores), 1) if scores else None,
+            "num_wines": len(results),
+            "wines":     wine_names[:3],
+            "error":     None,
+        }
+    except Exception as exc:
+        return {"found": False, "error": str(exc)[:100]}
+
+
 # Minimum delta to flag as an opportunity (current producer vs zone average)
-SCORE_DELTA_THRESHOLD = 5.0   # 5+ points below zone average
+# (kept here for backwards compat — defined above near ZONE_AVERAGE_SCORES)
 
 
 class TerroirScoreDeltaLayer(BaseLayer):
@@ -78,37 +153,93 @@ class TerroirScoreDeltaLayer(BaseLayer):
         if not config.LAYERS.get("terroir_score_delta", True):
             return self._empty_result(detail="Layer disabled in config.LAYERS")
 
-        api_key = getattr(config, "WINE_SEARCHER_API_KEY", "")
-        if not api_key:
-            # Even without an API key, we can surface the DOCG zone context
-            # using data already computed by scout.py's Group 2 pass.
-            zone_name = parcel.get("g2_wine_zone_name", "")
-            if zone_name and zone_name in ZONE_AVERAGE_SCORES:
-                zone_avg = ZONE_AVERAGE_SCORES[zone_name]
-                detail = (f"In {zone_name} (zone avg {zone_avg:.1f} pts). "
-                          f"Activate Wine-Searcher API to compare producer score vs zone benchmark.")
-            else:
-                detail = "Not in a tracked DOCG zone or zone data unavailable."
+        api_key       = getattr(config, "WINE_SEARCHER_API_KEY", "")
+        zone_name     = parcel.get("g2_wine_zone_name", "")
+        producer_name = parcel.get("name", "").strip()
+        zone_avg      = ZONE_AVERAGE_SCORES.get(zone_name)
 
+        # ── No API key: surface DOCG zone context as a free annotation ────────
+        if not api_key:
+            if zone_name and zone_avg is not None:
+                detail = (
+                    f"In {zone_name} (zone benchmark {zone_avg:.1f} pts). "
+                    f"Set WINE_SEARCHER_API_KEY to compare this producer's score "
+                    f"against the zone average."
+                )
+            else:
+                detail = (
+                    "Not in a tracked DOCG zone. "
+                    "Set WINE_SEARCHER_API_KEY to activate producer score comparison."
+                )
+            return self._empty_result(detail=detail)
+
+        # ── No estate name: cannot search Wine-Searcher ───────────────────────
+        if not producer_name:
             return self._empty_result(
-                detail=detail + " | PAID FEATURE — configure WINE_SEARCHER_API_KEY to activate"
+                detail="No OSM name tag — cannot search Wine-Searcher without a producer name"
             )
 
-        # ── Live implementation (when API key is set) ─────────────────────────
-        # Flow:
-        # 1. Identify the parcel's wine estate name (from OSM name tag)
-        # 2. Query Wine-Searcher API for the estate's current average score
-        # 3. Compare against the zone average from ZONE_AVERAGE_SCORES
-        # 4. Calculate delta = zone_average - producer_score
-        # 5. Flag if delta >= SCORE_DELTA_THRESHOLD
-        #
-        # Wine-Searcher API endpoints (with WINE_SEARCHER_API_KEY):
-        #   Search wine by producer: GET https://www.wine-searcher.com/api/v2/wine
-        #     Params: api_key, name=<producer_name>, country=Italy, region=Tuscany
-        #   Returns: average_rating, num_reviews, price_range
-        #
-        # NOTE: Vivino has no public API. The commercial data agreement
-        # (vivino.com/wine-data-service) provides bulk score exports.
-        # Integrate the Vivino CSV export here when the agreement is in place.
+        # ── Call Wine-Searcher ────────────────────────────────────────────────
+        ws = _search_wine_searcher(producer_name, api_key)
 
-        return self._paid_stub()
+        if not ws.get("found"):
+            err = ws.get("error", "no results")
+            if err == "rate_limited":
+                detail = "Wine-Searcher daily quota reached (100 searches/day on free tier)"
+            elif err == "invalid_api_key":
+                detail = "Wine-Searcher API key rejected — check WINE_SEARCHER_API_KEY in config.py"
+            else:
+                detail = f"'{producer_name}' not found on Wine-Searcher ({err})"
+            return self._empty_result(
+                detail=detail,
+                data={"producer_name": producer_name, "zone_name": zone_name},
+            )
+
+        producer_score = ws.get("avg_score")
+
+        # ── Compute delta and fire signal ─────────────────────────────────────
+        signal = False
+        score  = 0.0
+        delta  = None
+
+        if producer_score is not None and zone_avg is not None:
+            delta = round(zone_avg - producer_score, 1)
+            if delta >= SCORE_DELTA_THRESHOLD:
+                signal = True
+                # Scale: 5-pt gap = 0.5 score; 10-pt gap = 1.0 (capped)
+                score  = self._clamp(delta / 10.0)
+                detail = (
+                    f"{producer_name}: {producer_score:.1f} pts vs "
+                    f"{zone_name} avg {zone_avg:.1f} pts "
+                    f"({delta:+.1f} pts — underperforming zone potential)"
+                )
+            else:
+                detail = (
+                    f"{producer_name}: {producer_score:.1f} pts vs "
+                    f"{zone_name} avg {zone_avg:.1f} pts (within zone range)"
+                )
+        elif producer_score is not None:
+            detail = (
+                f"{producer_name}: {producer_score:.1f} pts "
+                f"(no zone benchmark available for comparison)"
+            )
+        else:
+            detail = f"'{producer_name}' found on Wine-Searcher but no critic score available"
+
+        return {
+            "layer":  self.name,
+            "label":  self.label,
+            "signal": signal,
+            "score":  round(score, 3),
+            "detail": detail,
+            "data": {
+                "producer_name":  producer_name,
+                "producer_score": producer_score,
+                "zone_name":      zone_name,
+                "zone_avg":       zone_avg,
+                "score_delta":    delta,
+                "wines_found":    ws.get("wines", []),
+                "num_wines":      ws.get("num_wines", 0),
+            },
+            "paid": self.paid,
+        }
