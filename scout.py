@@ -848,6 +848,11 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
             "gps_coordinates":      f"{round(lat, 6)},{round(lon, 6)}",
             "lat":                  round(lat, 6),
             "lon":                  round(lon, 6),
+            # ── Polygon geometry (for map rendering) ──────────────────────────
+            # Stored as [[lat, lon], ...] — Folium-ready coordinate pairs.
+            # The nodes list is discarded after filter_parcels(); saving it here
+            # allows build_map() to draw the real field boundary instead of a circle.
+            "polygon_coords":       [[n["lat"], n["lon"]] for n in nodes],
             # ── Agriculture ───────────────────────────────────────────────────
             "primary_crop_type":    classify_ag_type(tags),
             # ── Area (total land parcel) ──────────────────────────────────────

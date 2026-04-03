@@ -804,16 +804,41 @@ def build_map(parcels: list) -> folium.Map:
           </div>
         </div>
         """
-        folium.CircleMarker(
-            location=[p["lat"], p["lon"]],
-            radius=10 + score / 10,
-            color=color,
-            fill=True,
-            fill_color=color,
-            fill_opacity=0.7,
-            popup=folium.Popup(popup_html, max_width=280),
-            tooltip=f"{score:.1f}/100 — {name[:35]}",
-        ).add_to(m)
+        poly_coords = p.get("polygon_coords", [])
+        if poly_coords:
+            # Draw the real field boundary as a filled polygon
+            folium.Polygon(
+                locations=poly_coords,
+                color=color,
+                weight=2,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.25,
+                popup=folium.Popup(popup_html, max_width=280),
+                tooltip=f"{score:.1f}/100 — {name[:35]}",
+            ).add_to(m)
+            # Small centroid dot so the parcel is still visible at low zoom
+            folium.CircleMarker(
+                location=[p["lat"], p["lon"]],
+                radius=5,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.9,
+                tooltip=f"{score:.1f}/100 — {name[:35]}",
+            ).add_to(m)
+        else:
+            # Fallback for any parcel missing geometry (shouldn't happen, but safe)
+            folium.CircleMarker(
+                location=[p["lat"], p["lon"]],
+                radius=10 + score / 10,
+                color=color,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.7,
+                popup=folium.Popup(popup_html, max_width=280),
+                tooltip=f"{score:.1f}/100 — {name[:35]}",
+            ).add_to(m)
 
     # ── Soil Lithology WMS overlay (ISPRA — Carta Litologica d'Italia) ────────
     # Toggle is in the map's top-right corner via LayerControl.
