@@ -431,6 +431,8 @@ SIGNAL_META = [
         "config": ("GROUP2", "premium_wine_zone"),
         "paid":   False,
         "badge":  "",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Parcel falls within a premium Italian wine appellation where bottles regularly trade above $150.",
     },
     {
@@ -440,6 +442,8 @@ SIGNAL_META = [
         "config": ("GROUP2", "distress_signal"),
         "paid":   False,
         "badge":  "",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Fire history (EU EFFIS satellite data) or abandoned land nearby — a neglect and financial stress proxy.",
     },
     {
@@ -449,6 +453,8 @@ SIGNAL_META = [
         "config": ("GROUP2", "succession_signal"),
         "paid":   False,
         "badge":  "",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Italian family estate naming (Podere, Fattoria, Tenuta…) on or near the parcel suggests generational ownership nearing transition.",
     },
     {
@@ -458,6 +464,8 @@ SIGNAL_META = [
         "config": ("GROUP2", "lodging_overlay"),
         "paid":   False,
         "badge":  "",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Existing tourism or hospitality operation nearby signals local planning precedent for agriturismo conversion under Italian Law 96/2006.",
     },
     {
@@ -467,6 +475,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "satellite_neglect"),
         "paid":   True,
         "badge":  "paid",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "NDVI satellite data shows vegetation vigor below neighboring parcels — the first measurable sign of absentee ownership.",
     },
     {
@@ -476,6 +486,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "permit_paralysis"),
         "paid":   True,
         "badge":  "paid",
+        "proxy":  True,
+        "proxy_upgrade": "Albo Pretorio permit records (set ALBO_PRETORIO_API_KEY) — shows actual filed applications and approval status per parcel",
         "desc":   "Owner has filed multiple renovation permits over years with no final approval — frustration that often precedes a willingness to sell.",
     },
     {
@@ -485,6 +497,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "zoning_alchemy"),
         "paid":   True,
         "badge":  "paid + free",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Parcel is in agricultural Zone E (agriturismo-eligible) and/or shows permit filings using rural conversion keywords.",
     },
     {
@@ -494,6 +508,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "napa_neighbor"),
         "paid":   False,
         "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Within 8 km of a marquee acquisition (Antinori, LVMH, Frescobaldi) — land values in these ripple zones typically lag the anchor by 2–4 years.",
     },
     {
@@ -503,6 +519,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "hospitality_fatigue"),
         "paid":   True,
         "badge":  "paid",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Nearby agriturismo or hotel shows declining TripAdvisor scores and review cadence — a leading indicator of owner burnout.",
     },
     {
@@ -512,6 +530,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "digital_ghost"),
         "paid":   False,
         "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Estate website has gone stale or domain is near expiry — the digital equivalent of taking down the 'Open' sign.",
     },
     {
@@ -521,6 +541,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "succession_stress"),
         "paid":   False,
         "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Combines website staleness (Wayback Machine) with Italian company registry data (OpenCorporates) to flag estates under ownership pressure — aging companies, dissolved entities, or fragmented directorships signal a motivated seller.",
     },
     {
@@ -530,6 +552,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "terroir_score_delta"),
         "paid":   True,
         "badge":  "paid",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Soil quality (DOCG zone, galestro geology) outperforms the current producer's critic scores — unlocked value for a new buyer.",
     },
     {
@@ -539,6 +563,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "succession_frag"),
         "paid":   True,
         "badge":  "paid",
+        "proxy":  False,
+        "proxy_upgrade": "",
         "desc":   "Cadastral records show multiple co-owners — Italian inheritance law distributes estates equally, creating motivated-seller pressure.",
     },
     {
@@ -548,6 +574,8 @@ SIGNAL_META = [
         "config": ("LAYERS", "owner_relocation"),
         "paid":   True,
         "badge":  "paid + free",
+        "proxy":  True,
+        "proxy_upgrade": "OpenAPI.it cadastral contact address (set OPENAPI_IT_KEY) — shows the owner's registered mailing address vs parcel location, replacing the birth-municipality approximation",
         "desc":   "Owner's fiscal address or website language signals they no longer live near the estate — management burden often exceeds lifestyle benefit.",
     },
 ]
@@ -1053,6 +1081,8 @@ for i, sm in enumerate(free_signals):
                 key=f"layer_{sm['key']}",
             )
         st.caption(sm["desc"])
+        if sm.get("proxy"):
+            st.caption(f"⚡ Proxy data — upgrade to: {sm['proxy_upgrade']}")
 
 st.markdown("---")
 
@@ -1074,6 +1104,8 @@ for i, sm in enumerate(paid_layers):
             key=f"layer_{sm['key']}",
         )
         st.caption(sm["desc"])
+        if sm.get("proxy"):
+            st.caption(f"⚡ Proxy data — upgrade to: {sm['proxy_upgrade']}")
         if info:
             with st.expander("Setup & pricing ›"):
                 st.markdown(f"**API source:** {info['api']}")
@@ -1358,11 +1390,17 @@ else:
             dc3.metric("Confidence", p.get("heritage_confidence", "").title() or "N/A",
                 help="High = named type · Medium = type uncertain · Low = 'historic=yes' only")
 
+            # Build a quick label→proxy lookup for badge rendering
+            _proxy_labels = {sm["label"] for sm in SIGNAL_META if sm.get("proxy")}
+
             st.markdown("**Signals fired:**")
             if fired:
                 sig_cols = st.columns(min(len(fired), 4))
                 for i, sig in enumerate(fired):
-                    sig_cols[i % 4].success(f"✓ {sig}")
+                    if sig in _proxy_labels:
+                        sig_cols[i % 4].warning(f"⚡ {sig}  *(proxy)*")
+                    else:
+                        sig_cols[i % 4].success(f"✓ {sig}")
             else:
                 st.caption("No signals fired for this parcel.")
 
@@ -1381,12 +1419,21 @@ else:
                     if sm["key"] not in active_keys:
                         continue
                     detail_key = sm["key"].replace("_signal", "_detail")
+                    fired_flag = p.get(sm["key"])
+                    is_proxy   = sm.get("proxy", False)
                     detail_rows.append({
-                        "Signal": sm["label"],
-                        "Fired":  "✓" if p.get(sm["key"]) else "—",
-                        "Detail": str(p.get(detail_key, "")),
+                        "Signal":       sm["label"],
+                        "Fired":        "✓" if fired_flag else "—",
+                        "Data Quality": "⚡ proxy" if is_proxy else "authoritative",
+                        "Detail":       str(p.get(detail_key, "")),
                     })
                 st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
+                if any(sm.get("proxy") for sm in SIGNAL_META if sm["key"] in active_keys):
+                    st.caption(
+                        "⚡ Proxy signals use indirect data as a stand-in for the authoritative source. "
+                        "They are directionally correct but less precise. "
+                        "See signal descriptions above for upgrade paths."
+                    )
 
         # Render cards in rows of 3; inject report immediately after the active row
         row_size = 3
