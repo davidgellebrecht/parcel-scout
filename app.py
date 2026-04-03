@@ -853,6 +853,9 @@ def build_map(parcels: list) -> folium.Map:
         show=False,       # off by default — enable via toggle top-right
         opacity=0.65,
         attr='<a href="https://portalesgi.isprambiente.it" target="_blank">ISPRA — Carta Geologica d\'Italia 1:25,000</a>',
+        # The 1:25,000 dataset only has tiles at zoom 11+. Setting min_zoom prevents
+        # the browser from making tile requests that will return blank at lower zoom levels.
+        min_zoom=11,
     ).add_to(m)
 
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
@@ -868,8 +871,10 @@ def build_map(parcels: list) -> folium.Map:
       <div><span style="color:#7F8C8D;font-size:14px;">&#9632;</span> Limestone / carbonate</div>
       <div><span style="color:#D4AC0D;font-size:14px;">&#9632;</span> Clay / sedimentary</div>
       <div><span style="color:#1A5276;font-size:14px;">&#9632;</span> Alluvial / fluvial</div>
-      <div style="margin-top:5px;font-size:9px;color:#7A6A55;">
-        Enable "Soil Lithology" layer ↗ to see geology
+      <div style="margin-top:6px;font-size:9px;color:#7A6A55;line-height:1.4;">
+        Enable "Soil Lithology" ↗ to see geology.<br>
+        <strong>Zoom in to load tiles.</strong><br>
+        Coverage gaps = survey not yet published by ISPRA for that area.
       </div>
     </div>
     """
