@@ -198,12 +198,18 @@ def fetch_agricultural_parcels() -> list:
   way["landuse"="orchard"]["crop"="olive"]({bb});
   way["landuse"="orchard"]["produce"~"olive",i]({bb});
   way["landuse"="orchard"]({bb});
+  way["landuse"="farmland"]["crop"~"grape|grapes|vite|vines",i]({bb});
+  way["landuse"="farmland"]["produce"~"wine|grape|olive",i]({bb});
+  way["landuse"="farmland"]["trees"~"olive",i]({bb});
+  way["landuse"="grass"]({bb});
+  way["landuse"="meadow"]({bb});
   relation["landuse"="vineyard"]({bb});
   relation["landuse"="orchard"]({bb});
+  relation["landuse"="farmland"]({bb});
 );
 out body geom;
 """
-    print("  Querying agricultural land (vineyards & olive orchards)...")
+    print("  Querying agricultural land (vineyards, olive orchards, farmland, grass, meadow)...")
     data = _overpass(query)
     return data.get("elements", [])
 
@@ -217,7 +223,7 @@ def fetch_broad_landuse() -> list:
     query = f"""
 [out:json][timeout:{config.OVERPASS_TIMEOUT}];
 (
-  way["landuse"~"farmland|vineyard|orchard|meadow|grass|forest"]({bb});
+  way["landuse"~"farmland|vineyard|orchard|meadow|grass"]({bb});
   relation["landuse"~"farmland|vineyard|orchard"]({bb});
 );
 out body geom;
@@ -350,7 +356,7 @@ def fetch_named_estates() -> list:
     (Agenzia delle Entrate) when the owner layer is built out.
     """
     bb = _bbox()
-    prefixes = "Podere|Fattoria|Tenuta|Castello|Villa|Cascina|Masseria|Casale|Azienda"
+    prefixes = "Podere|Fattoria|Tenuta|Castello|Villa|Cascina|Masseria|Casale|Azienda|Pieve|Rocca|Borgo|Monte|Colle"
     query = f"""
 [out:json][timeout:{config.OVERPASS_TIMEOUT}];
 (
@@ -383,7 +389,7 @@ def fetch_tourism_nodes() -> list:
     Regolatore Generale) or SIT (Sistema Informativo Territoriale) API directly.
     """
     s, w, n, e = config.REGION_BBOX
-    bb = f"{s - 0.1},{w - 0.1},{n + 0.1},{e + 0.1}"
+    bb = f"{s - 0.03},{w - 0.03},{n + 0.03},{e + 0.03}"
     query = f"""
 [out:json][timeout:{config.OVERPASS_TIMEOUT}];
 (
@@ -437,7 +443,40 @@ def classify_ag_type(tags: dict) -> str:
         return "olive orchard"
     if landuse == "orchard":
         return "orchard"
+    if landuse == "farmland":
+        if any(k in crop for k in ("grape", "grapes", "vite", "vine")):
+            return "vineyard (farmland)"
+        if any(k in produce for k in ("wine", "grape")):
+            return "vineyard (farmland)"
+        if "olive" in trees:
+            return "olive orchard (farmland)"
+        return "farmland"
+    if landuse in ("grass", "meadow"):
+        return landuse
     return landuse or "unknown"
+
+
+_WINE_OLIVE_CROPS   = {"grape", "grapes", "vite", "vines", "olive"}
+_WINE_OLIVE_PRODUCE = {"wine", "grape", "grapes", "olive", "olives"}
+_WINE_OLIVE_TREES   = {"olive_trees", "olive"}
+
+
+def _qualifies_as_agricultural(tags: dict) -> bool:
+    """
+    Gate for the agricultural_land filter when new landuse types are in the result set.
+    Vineyard and orchard always pass. Farmland passes only if it has a wine/olive crop,
+    produce, or trees subtag. Grass and meadow pass unconditionally (size is the gate).
+    """
+    landuse = tags.get("landuse", "")
+    if landuse in ("vineyard", "orchard"):
+        return True
+    if landuse == "farmland":
+        return (any(k in tags.get("crop", "").lower()    for k in _WINE_OLIVE_CROPS)   or
+                any(k in tags.get("produce", "").lower() for k in _WINE_OLIVE_PRODUCE) or
+                any(k in tags.get("trees", "").lower()   for k in _WINE_OLIVE_TREES))
+    if landuse in ("grass", "meadow"):
+        return True
+    return False
 
 
 # ─── Filtering ────────────────────────────────────────────────────────────────
@@ -572,7 +611,8 @@ def check_succession_signal(lat: float, lon: float, parcel_tags: dict, estate_fe
     - A named estate is within SUCCESSION_SEARCH_RADIUS_M.
     """
     PREFIXES = ("podere", "fattoria", "tenuta", "castello", "villa",
-                "cascina", "masseria", "casale", "azienda")
+                "cascina", "masseria", "casale", "azienda",
+                "pieve", "rocca", "borgo", "monte", "colle")
     for field in ("name", "operator", "owner", "brand"):
         val = parcel_tags.get(field, "").lower().strip()
         if val and any(val.startswith(p) or f" {p}" in val for p in PREFIXES):
@@ -624,8 +664,7 @@ def annotate_group2(parcels: list, distress_elements: list,
         is_lodging, lodge_detail = (check_lodging_overlay(lat, lon, tourism_nodes)
                                     if g2["lodging_overlay"] else (False, ""))
 
-        enabled   = sum(g2.values())           # how many secondary signals are turned ON
-        met       = sum([in_zone, is_distress, is_succession, is_lodging])
+        met = sum([in_zone, is_distress, is_succession, is_lodging])
 
         p["g2_premium_wine_zone"]  = in_zone
         p["g2_wine_zone_name"]     = zone_name
@@ -635,9 +674,9 @@ def annotate_group2(parcels: list, distress_elements: list,
         p["g2_succession_detail"]  = succ_detail
         p["g2_lodging_overlay"]    = is_lodging
         p["g2_lodging_detail"]     = lodge_detail
-        p["secondary_score"]       = f"{met}/{enabled}"
+        p["secondary_score"]       = f"{met}/4"   # always out of 4 so scores are comparable across configs
         p["secondary_met"]         = met
-        p["secondary_total"]       = enabled
+        p["secondary_total"]       = 4
 
     return parcels
 
@@ -744,7 +783,7 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
     """
     filters = config.FILTERS
     results = []
-    skipped = {"no_geometry": 0, "area": 0, "airport": 0, "historic": 0}
+    skipped = {"no_geometry": 0, "area": 0, "non_agricultural": 0, "airport": 0, "historic": 0}
 
     for el in raw_elements:
         tags  = el.get("tags", {})
@@ -766,11 +805,21 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
                 skipped["area"] += 1
                 continue
 
+        # Filter: agricultural_land — secondary gate for farmland/grass/meadow elements
+        # that were fetched by the expanded query but lack qualifying crop/produce subtags.
+        if filters["agricultural_land"]:
+            if not _qualifies_as_agricultural(tags):
+                skipped["non_agricultural"] += 1
+                continue
+
         # Filter: proximity_to_airport
+        # dist_ap_km is haversine (straight-line). Multiply by ROAD_DISTANCE_FACTOR
+        # (~1.30) to correct for Tuscany's hilly terrain before applying the gate.
+        # The raw haversine value is stored in the output so displayed km stays honest.
         airport    = nearest_airport_info(lat, lon, airports)
         dist_ap_km = airport["dist_km"]
         if filters["proximity_to_airport"]:
-            if dist_ap_km > config.AIRPORT_MAX_KM:
+            if dist_ap_km * config.ROAD_DISTANCE_FACTOR > config.AIRPORT_MAX_KM:
                 skipped["airport"] += 1
                 continue
 
@@ -810,7 +859,7 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
             "nearest_airport":      airport["name"],
             "airport_iata":         airport["iata"],
             "dist_airport_km":      round(dist_ap_km, 1),
-            "est_drive_mins":       round((dist_ap_km / config.AIRPORT_AVG_SPEED_KMH) * 60),
+            "est_drive_mins":       round((dist_ap_km * config.ROAD_DISTANCE_FACTOR / config.AIRPORT_AVG_SPEED_KMH) * 60),
             # ── Ownership (Visura Catastale — integration pending) ────────────
             "owner_name":           owner["owner_name"],
             "fiscal_code":          owner["fiscal_code"],

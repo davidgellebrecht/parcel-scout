@@ -26,11 +26,16 @@ MIN_AREA_SQFT            = 20_000  # square feet
 TARGET_AIRPORTS = {
     "PSA": {"name": "Pisa Galileo Galilei",    "lat": 43.6839, "lon": 10.3927},
     "FLR": {"name": "Florence Peretola",        "lat": 43.8099, "lon": 11.2051},
+    "SAY": {"name": "Siena Ampugnano",          "lat": 43.2260, "lon": 11.2570},
 }
 
 # ─── Derived constants (do not edit) ──────────────────────────────────────────
 AIRPORT_MAX_KM = (AIRPORT_MAX_DRIVE_MINS / 60) * AIRPORT_AVG_SPEED_KMH  # ~70 km straight-line proxy
 MIN_AREA_SQM   = MIN_AREA_SQFT * 0.092903                                # 1 sqft = 0.092903 m²
+# Tuscany's hilly terrain means actual road distance is ~30% longer than haversine straight-line.
+# Applied to the haversine result before comparing against AIRPORT_MAX_KM so the gate reflects
+# real drive distance. The displayed dist_airport_km value stays as honest straight-line km.
+ROAD_DISTANCE_FACTOR = 1.30
 
 # ─── Group 2 — Opportunistic Signals (annotation only, no parcels excluded) ──
 # Set any toggle to False to skip that signal's query and leave the column blank.
