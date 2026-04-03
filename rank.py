@@ -74,6 +74,7 @@ from layers.geo_layers.zoning_alchemy             import ZoningAlchemyLayer
 from layers.geo_layers.napa_neighbor              import NapaNeighborLayer
 from layers.brand_layers.hospitality_fatigue      import HospitalityFatigueLayer
 from layers.brand_layers.digital_ghost            import DigitalGhostLayer
+from layers.brand_layers.succession_stress        import SuccessionStressLayer
 from layers.brand_layers.terroir_score_delta      import TerroirScoreDeltaLayer
 from layers.legal_layers.succession_fragmentation import SuccessionFragmentationLayer
 from layers.legal_layers.owner_relocation         import OwnerRelocationLayer
@@ -91,6 +92,7 @@ ALL_LAYERS = [
     # ── Tier 0: Free, no external API ─────────────────────────────────────────
     NapaNeighborLayer(),              # free — hardcoded proximity math, instant
     DigitalGhostLayer(),              # free — WHOIS + Wayback CDX (public APIs)
+    SuccessionStressLayer(),          # free — Wayback CDX + OpenCorporates Italian registry
     # ── Tier 1: Free-tier APIs (quota-based) ──────────────────────────────────
     HospitalityFatigueLayer(),        # free tier — TripAdvisor 5,000 req/month
     TerroirScoreDeltaLayer(),         # free tier — Wine-Searcher 100 req/day ← most constrained
@@ -119,6 +121,7 @@ ALL_SIGNAL_KEYS = [
     # Brand layers 5–7
     "layer_hospitality_fatigue_signal",
     "layer_digital_ghost_signal",
+    "layer_succession_stress_signal",
     "layer_terroir_score_delta_signal",
     # Legal layers 8–9
     "layer_succession_frag_signal",
@@ -138,6 +141,7 @@ SIGNAL_LABELS = [
     "Napa neighbor",
     "Host. fatigue",
     "Digital ghost",
+    "Succession stress",
     "Terroir delta",
     "Co-owners",
     "Owner reloc.",

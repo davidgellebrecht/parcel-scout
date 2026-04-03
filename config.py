@@ -94,6 +94,7 @@ LAYERS = {
     # ── Group 2: Brand / Sentiment Layers — run via sentiment.py ──────────────
     "hospitality_fatigue": False,  # PAID FEATURE — no key configured
     "digital_ghost":       False,  # TEMP DEMO OFF — WHOIS + Wayback per parcel too slow for demo
+    "succession_stress":   False,  # free — Wayback CDX + OpenCorporates; off by default (network calls per parcel)
     "terroir_score_delta": False,  # PAID FEATURE — no key configured
     # ── Group 3: Legal Layers — run via acquisitions.py ───────────────────────
     "succession_frag":     False,  # PAID FEATURE — no key configured

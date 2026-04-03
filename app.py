@@ -515,6 +515,15 @@ SIGNAL_META = [
         "desc":   "Estate website has gone stale or domain is near expiry — the digital equivalent of taking down the 'Open' sign.",
     },
     {
+        "key":    "layer_succession_stress_signal",
+        "label":  "Succession Stress",
+        "group":  "layer",
+        "config": ("LAYERS", "succession_stress"),
+        "paid":   False,
+        "badge":  "free",
+        "desc":   "Combines website staleness (Wayback Machine) with Italian company registry data (OpenCorporates) to flag estates under ownership pressure — aging companies, dissolved entities, or fragmented directorships signal a motivated seller.",
+    },
+    {
         "key":    "layer_terroir_score_delta_signal",
         "label":  "Terroir Delta",
         "group":  "layer",
@@ -805,6 +814,41 @@ def build_map(parcels: list) -> folium.Map:
             popup=folium.Popup(popup_html, max_width=280),
             tooltip=f"{score:.1f}/100 — {name[:35]}",
         ).add_to(m)
+
+    # ── Soil Lithology WMS overlay (ISPRA — Carta Litologica d'Italia) ────────
+    # Toggle is in the map's top-right corner via LayerControl.
+    # Source: Italian National Environmental Agency (ISPRA), 1:100,000 scale.
+    # No authentication required — free public WMS.
+    folium.WmsTileLayer(
+        url="https://wms.pcn.minambiente.it/ogc?map=/ms_ogc/wms/GEO_LITOLOGIA.map",
+        layers="GEO_LITOLOGIA",
+        fmt="image/png",
+        transparent=True,
+        name="Soil Lithology (ISPRA)",
+        show=False,       # off by default — enable via toggle top-right
+        opacity=0.65,
+        attr='<a href="https://www.isprambiente.gov.it" target="_blank">ISPRA — Carta Litologica d\'Italia 1:100,000</a>',
+    ).add_to(m)
+
+    folium.LayerControl(collapsed=False, position="topright").add_to(m)
+
+    # ── Soil legend ───────────────────────────────────────────────────────────
+    legend_html = """
+    <div style="position:fixed;bottom:30px;left:12px;z-index:9999;
+                background:#F4EFE6;border:1px solid #D4C4A0;padding:10px 14px;
+                font-family:'Montserrat',sans-serif;font-size:11px;color:#2A2118;
+                border-radius:3px;max-width:195px;box-shadow:0 2px 6px rgba(0,0,0,.15);">
+      <div style="font-weight:600;margin-bottom:5px;">Soil Lithology (ISPRA)</div>
+      <div><span style="color:#C0392B;font-size:14px;">&#9632;</span> Volcanic / igneous</div>
+      <div><span style="color:#7F8C8D;font-size:14px;">&#9632;</span> Limestone / carbonate</div>
+      <div><span style="color:#D4AC0D;font-size:14px;">&#9632;</span> Clay / sedimentary</div>
+      <div><span style="color:#1A5276;font-size:14px;">&#9632;</span> Alluvial / fluvial</div>
+      <div style="margin-top:5px;font-size:9px;color:#7A6A55;">
+        Enable "Soil Lithology" layer ↗ to see geology
+      </div>
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(legend_html))
 
     return m
 
