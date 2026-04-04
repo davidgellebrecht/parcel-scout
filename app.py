@@ -610,65 +610,142 @@ FILTER_META = [
 PREMIUM_LAYER_INFO = {
     "satellite_neglect": {
         "api":       "Sentinel Hub — European Space Agency Copernicus programme",
-        "cost":      "Free 30-day trial; paid plans from €25/month",
-        "free_tier": "30-day trial available — no credit card required during trial period",
-        "setup":     "Register at sentinel-hub.com → create an OAuth client → set SENTINEL_HUB_CLIENT_ID and SENTINEL_HUB_CLIENT_SECRET in Streamlit Secrets (or config.py for local use).",
+        "cost":      "Free 30-day trial (no credit card during trial); paid plans from approx. €25/month after trial",
+        "free_tier": "30-day trial — register at sentinel-hub.com, no credit card required until trial ends",
+        "setup":     (
+            "1. Register at sentinel-hub.com (free, no credit card for trial). "
+            "2. After login: User Settings → OAuth clients → Create new client → name it 'Parcel Scout'. "
+            "3. Copy the Client ID and Client Secret shown on that page. "
+            "4. On Streamlit Cloud: open your app → Settings → Secrets → add both values: "
+            "SENTINEL_HUB_CLIENT_ID = \"your-id\" and SENTINEL_HUB_CLIENT_SECRET = \"your-secret\". "
+            "5. In config.py: set LAYERS['satellite_neglect'] = True. "
+            "What it unlocks: real Sentinel-2 satellite NDVI imagery — parcels whose vegetation is "
+            "measurably less healthy than their neighbours are flagged as potentially absentee-managed."
+        ),
         "degrades":  False,
     },
     "permit_paralysis": {
-        "api":       "Albo Pretorio — Italian municipal permit registry",
-        "cost":      "Commercial aggregator required — no public pricing; contact a vendor",
+        "api":       "Albo Pretorio — Italian municipal permit registry (no unified national API)",
+        "cost":      (
+            "No free tier. Requires a commercial contract with an Albo Pretorio data aggregator "
+            "(e.g. Maggioli or Halley Informatica — the two main vendors of Italian municipal CMS software). "
+            "Pricing is negotiated per contract, not published. "
+            "The free OSM proxy (building condition / construction tags) runs without any key."
+        ),
         "free_tier": None,
-        "setup":     "Contract a commercial Albo Pretorio data provider, then set ALBO_PRETORIO_API_KEY in Streamlit Secrets (or config.py for local use).",
-        "degrades":  False,
+        "setup":     (
+            "1. Contact Maggioli (maggioli.it) or Halley Informatica (halley.it) for a data access quote. "
+            "2. Sign their commercial information agreement. "
+            "3. Once you receive your API key, set ALBO_PRETORIO_API_KEY in Streamlit Secrets. "
+            "4. In config.py: LAYERS['permit_paralysis'] is already True — the OSM proxy runs now; "
+            "the paid layer activates automatically once the key is present. "
+            "Note: each Italian Comune runs its own portal — the aggregator normalises them all."
+        ),
+        "degrades":  True,
     },
     "zoning_alchemy": {
-        "api":       "Albo Pretorio (permit intent) + Regione Toscana WFS (Zone E — free)",
-        "cost":      "Only the permit-keyword component requires a paid aggregator; Zone E check is always free",
-        "free_tier": "Zone E boundary check runs without any credentials",
-        "setup":     "Contract a commercial Albo Pretorio data provider, then set ALBO_PRETORIO_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "api":       "Albo Pretorio (permit keyword search) + Regione Toscana GEOscopio WFS (Zone E — always free)",
+        "cost":      (
+            "Zone E boundary check: always free (Regione Toscana public WFS). "
+            "Permit keyword component: same commercial Albo Pretorio contract as Permit Paralysis — "
+            "no additional cost if you already have that contract."
+        ),
+        "free_tier": "Zone E agricultural zoning check runs without any credentials",
+        "setup":     (
+            "Zone E (free) is already active — no setup needed. "
+            "For permit keyword search: obtain the Albo Pretorio contract (see Permit Paralysis setup above), "
+            "then set ALBO_PRETORIO_API_KEY in Streamlit Secrets. "
+            "The layer automatically upgrades from Zone E only to Zone E + permit keywords once the key is present."
+        ),
         "degrades":  True,
     },
     "hospitality_fatigue": {
-        "api":       "TripAdvisor Content API",
-        "cost":      "Free up to 5,000 requests/month; paid tiers above that",
-        "free_tier": "5,000 requests/month — enough for typical scan volumes",
-        "setup":     "Register at tripadvisor.com/developers, generate an API key, then set TRIPADVISOR_API_KEY in Streamlit Secrets (or config.py for local use).",
+        "api":       "TripAdvisor Content API — tripadvisor.com/developers",
+        "cost":      (
+            "First 5,000 requests/month: $0.00. "
+            "Beyond that: $0.01 per request (5,001–20,000), then $0.0093 (20,001–100,000). "
+            "A typical Parcel Scout scan uses ~60 calls for 20 parcels — well inside the free tier. "
+            "You would need to run 80+ full scans per month before any charge appears. "
+            "⚠️ Requires a credit card on file even for the free tier — TripAdvisor holds it as a payment "
+            "method but does not charge it within 5,000 calls/month."
+        ),
+        "free_tier": "5,000 calls/month free — credit card required on file but not charged within free tier",
+        "setup":     (
+            "1. Go to tripadvisor.com/developers and sign in with a TripAdvisor account. "
+            "2. Click 'Pay as you grow' → enter billing info (card held on file, not charged). "
+            "3. Click 'Confirm order' ($0.00 due today). "
+            "4. From your dashboard ('My API' tab), copy your API key. "
+            "5. On Streamlit Cloud: open your app → Settings → Secrets → add: TRIPADVISOR_API_KEY = \"your-key\". "
+            "6. In config.py: set LAYERS['hospitality_fatigue'] = True. "
+            "What it unlocks: live TripAdvisor review scores and cadence for nearby agritourism — "
+            "a declining score velocity flags owner burnout before the property hits the market."
+        ),
         "degrades":  False,
     },
     "terroir_score_delta": {
-        "api":       "Wine-Searcher API — wine.com/api",
+        "api":       "Wine-Searcher API — wine-searcher.com/api",
         "cost":      (
-            "Free tier: 100 searches/day, no credit card required. "
-            "Paid tiers: Enthusiast $9.99/mo (1,000/day) · Professional $29.99/mo (10,000/day) · "
+            "⚠️ Free trial only (not an ongoing free tier): 100 searches/day for 5 days, then paid plan required. "
+            "Paid tiers (as of 2025): Enthusiast $9.99/mo (1,000/day) · Professional $29.99/mo (10,000/day) · "
             "Commercial from $99/mo (100,000+/day, SLA, bulk endpoints). "
-            "For typical Parcel Scout scan volumes (20–80 parcels/run) the free tier is sufficient."
+            "For typical scan volumes (20 named parcels/run), the Enthusiast tier at $9.99/mo is sufficient."
         ),
-        "free_tier": "100 searches/day — no credit card, covers most scan volumes",
+        "free_tier": "5-day trial only (100 searches/day) — paid plan required after trial",
         "setup":     (
             "1. Go to wine-searcher.com/api and click 'Get API Key'. "
-            "2. Register for a free account — no credit card needed for the free tier. "
-            "3. In your dashboard, copy the API key (format: a long alphanumeric string). "
+            "2. Create an account and start the 5-day free trial, or subscribe to the Enthusiast plan ($9.99/mo). "
+            "3. Copy your API key from the dashboard. "
             "4. On Streamlit Cloud: open your app → Settings → Secrets → add: WINE_SEARCHER_API_KEY = \"your-key\". "
-            "5. For local use: open config.py and paste the key into WINE_SEARCHER_API_KEY = \"your-key\". "
-            "What it unlocks: the Terroir Score Delta layer queries actual retail/auction prices "
-            "for wines produced from the specific subzone of each parcel, replacing the current "
-            "hardcoded '$150+ zone' approximation with live price intelligence per producer."
+            "5. In config.py: set LAYERS['terroir_score_delta'] = True. "
+            "What it unlocks: actual critic scores (Wine Spectator / Wine Advocate) for each named estate, "
+            "compared against the DOCG zone benchmark — a gap of 5+ points signals underperforming land "
+            "that a better operator could unlock."
         ),
         "degrades":  False,
     },
     "succession_frag": {
-        "api":       "OpenAPI.it — Italian Catasto (cadastral co-owner records)",
-        "cost":      "Free tier available — no credit card required",
-        "free_tier": "Free tier at console.openapi.com",
-        "setup":     "Register at console.openapi.com → navigate to the Catasto section → copy your OAuth Bearer token → set OPENAPI_IT_KEY in Streamlit Secrets (or config.py for local use).",
+        "api":       "OpenAPI.it — Italian Cadastre API (catasto.openapi.it)",
+        "cost":      (
+            "Address lookup (POST /indirizzo): free — 1,440 calls/day free tier. "
+            "Ownership lookup (POST /richiesta): €0.30 per call at base rate; "
+            "€0.08 per call with a subscription plan. "
+            "For 20 parcels per scan: ~€6.00 at base, ~€1.60 with subscription. "
+            "⚠️ Requires two things before any calls work: "
+            "(1) ID card upload for identity verification, and "
+            "(2) signing a commercial information contract with OpenAPI.it. "
+            "This is not a quick sign-up — allow a few business days for approval."
+        ),
+        "free_tier": None,
+        "setup":     (
+            "1. Register at openapi.com and log in. "
+            "2. Go to Authentication → copy your Prod API key (plain string, no 'Bearer' prefix needed). "
+            "3. Go to API Library → search 'Catasto' → click GO on 'Italian cadastre'. "
+            "4. Click the Subscription tab and select a plan. "
+            "5. Complete ID card upload (required by Italian data protection law). "
+            "6. Sign the commercial information contract presented during signup. "
+            "7. Once approved: set OPENAPI_IT_KEY = \"your-key\" in Streamlit Secrets. "
+            "8. In config.py: set LAYERS['succession_frag'] = True. "
+            "Tip: turn on the Sandbox first (Authentication page, green button) — "
+            "it gives you a parallel test environment with virtual credits at no charge."
+        ),
         "degrades":  False,
     },
     "owner_relocation": {
-        "api":       "OpenAPI.it — Italian Catasto (cadastral address) + fiscal code decode (always free)",
-        "cost":      "Catasto component only — free tier available at console.openapi.com",
-        "free_tier": "Fiscal code decode and website language detection run without any credentials",
-        "setup":     "Register at console.openapi.com → navigate to the Catasto section → copy your OAuth Bearer token → set OPENAPI_IT_KEY in Streamlit Secrets (or config.py for local use).",
+        "api":       "OpenAPI.it — Italian Cadastre API (cadastral contact address) + fiscal code decode (always free)",
+        "cost":      (
+            "Fiscal code birth-municipality decode and website language detection: always free, no key needed. "
+            "Cadastral contact address upgrade: same OpenAPI.it contract as Succession Fragmentation above — "
+            "€0.30 per lookup at base rate, €0.08 with subscription. No additional signup required "
+            "if you already have the Succession Fragmentation contract in place."
+        ),
+        "free_tier": "Fiscal code decode + website language check always run — no credentials required",
+        "setup":     (
+            "Free components already active — owner birth municipality and website language are checked on every scan. "
+            "For the cadastral contact address upgrade (removes the ⚡ proxy label): "
+            "follow the same OpenAPI.it setup as Succession Fragmentation above, "
+            "then set OPENAPI_IT_KEY in Streamlit Secrets. "
+            "The layer automatically upgrades from proxy to authoritative once the key is present."
+        ),
         "degrades":  True,
     },
 }
