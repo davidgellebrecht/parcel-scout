@@ -111,6 +111,11 @@ LAYERS = {
     "succession_frag":     False,  # needs OPENAPI_IT_KEY
     "owner_relocation":    True,   # free fiscal code + website language always run;
                                    # cadastral contact address upgrades when OPENAPI_IT_KEY set
+    # ── Group 4: New Geo + Brand Layers ───────────────────────────────────────
+    "elevation_aspect":    True,   # free — OpenTopoData SRTM 90 m (elevation + slope aspect)
+    "road_access":         True,   # free — OSM highway tags (access quality proxy)
+    "water_access":        True,   # free — OSM waterway/natural/man_made (water source proximity)
+    "listing_check":       True,   # free — Gate-Away.com listing check (on-market signal)
 }
 
 # ─── Layer credentials ────────────────────────────────────────────────────────

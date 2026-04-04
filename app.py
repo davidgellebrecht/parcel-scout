@@ -7,7 +7,9 @@ Run locally:   streamlit run app.py
 Deploy:        push to GitHub → share.streamlit.io
 """
 
+import io
 import json
+import re
 import time
 from datetime import datetime
 
@@ -15,6 +17,12 @@ import folium
 import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
+
+try:
+    from fpdf import FPDF
+    _PDF_AVAILABLE = True
+except ImportError:
+    _PDF_AVAILABLE = False
 
 
 import config
@@ -578,6 +586,51 @@ SIGNAL_META = [
         "proxy_upgrade": "OpenAPI.it cadastral contact address (set OPENAPI_IT_KEY) — shows the owner's registered mailing address vs parcel location, replacing the birth-municipality approximation",
         "desc":   "Owner's fiscal address or website language signals they no longer live near the estate — management burden often exceeds lifestyle benefit.",
     },
+    # ── New free geo + brand layers ────────────────────────────────────────────
+    {
+        "key":    "layer_elevation_aspect_signal",
+        "label":  "Elevation & Aspect",
+        "group":  "layer",
+        "config": ("LAYERS", "elevation_aspect"),
+        "paid":   False,
+        "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
+        "desc":   "Parcel sits at ideal Tuscan wine elevation (150–600 m) on a south-facing slope (135–225°) — the geological sweet spot for Sangiovese that commands a premium under skilled management.",
+    },
+    {
+        "key":    "layer_road_access_signal",
+        "label":  "Road Access",
+        "group":  "layer",
+        "config": ("LAYERS", "road_access"),
+        "paid":   False,
+        "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
+        "desc":   "Only track, path, or no mapped road access within 300 m — parcel is likely priced at a discount for infrastructure reasons a motivated buyer can remedy.",
+    },
+    {
+        "key":    "layer_water_access_signal",
+        "label":  "Water Access",
+        "group":  "layer",
+        "config": ("LAYERS", "water_access"),
+        "paid":   False,
+        "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
+        "desc":   "Natural spring, river, stream, or well within 500 m — embedded water rights and irrigation potential that is extremely difficult to acquire after purchase.",
+    },
+    {
+        "key":    "layer_listing_check_signal",
+        "label":  "Listed for Sale?",
+        "group":  "layer",
+        "config": ("LAYERS", "listing_check"),
+        "paid":   False,
+        "badge":  "free",
+        "proxy":  False,
+        "proxy_upgrade": "",
+        "desc":   "Estate found on Gate-Away.com — owner has publicly listed the property for sale, the strongest possible declaration of seller intent.",
+    },
 ]
 
 FILTER_META = [
@@ -867,6 +920,214 @@ def run_full_scan(filter_state: dict, g2_state: dict, layer_state: dict) -> list
     return parcels
 
 
+# ── PDF report generator ──────────────────────────────────────────────────────
+
+def generate_pdf(p: dict, active_keys: list) -> bytes | None:
+    """
+    Generate a single-parcel Intelligence Report PDF using fpdf2.
+    Returns raw PDF bytes, or None if fpdf2 is not installed.
+
+    Layout:
+      Page 1 — Header, key metrics, signals fired, GPS / OSM link
+      Page 2 — Full signal detail table (one row per active signal)
+    """
+    if not _PDF_AVAILABLE:
+        return None
+
+    score     = p.get("opportunity_score", 0)
+    name      = (p.get("name") or p.get("gps_coordinates", "Unknown Parcel"))[:60]
+    crop      = p.get("primary_crop_type", "").title() or "—"
+    acres     = f"{p.get('parcel_acres', 0):.1f}"
+    airport   = f"{p.get('dist_airport_km', 0):.0f} km ({p.get('airport_iata', '')})"
+    heritage  = p.get("closest_historic_tag", "").title() or "—"
+    gps       = p.get("gps_coordinates", "")
+    osm_url   = p.get("osm_url", "")
+    region    = p.get("region", config.REGION)
+    gen_date  = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Compute fired / not-fired
+    proxy_labels = {sm["label"] for sm in SIGNAL_META if sm.get("proxy")}
+    fired_rows = []
+    other_rows = []
+    for sm in SIGNAL_META:
+        if sm["key"] not in active_keys:
+            continue
+        detail_key = sm["key"].replace("_signal", "_detail")
+        is_fired   = bool(p.get(sm["key"]))
+        is_proxy   = sm.get("proxy", False)
+        row = {
+            "label":   sm["label"],
+            "fired":   is_fired,
+            "proxy":   is_proxy,
+            "detail":  str(p.get(detail_key, ""))[:120],
+        }
+        if is_fired:
+            fired_rows.append(row)
+        else:
+            other_rows.append(row)
+
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # ── Brand header ──────────────────────────────────────────────────────────
+    pdf.set_fill_color(42, 33, 24)          # #2A2118
+    pdf.rect(0, 0, 210, 18, "F")
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(244, 239, 230)       # #F4EFE6
+    pdf.set_xy(10, 5)
+    pdf.cell(0, 8, "Giovanni Bonelli Group  ·  Parcel Scout  ·  Tuscany Acquisition Intelligence")
+
+    # ── Title block ───────────────────────────────────────────────────────────
+    pdf.set_text_color(42, 33, 24)
+    pdf.set_xy(10, 24)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(139, 105, 20)        # #8B6914
+    pdf.cell(0, 5, "INTELLIGENCE REPORT", ln=True)
+
+    pdf.set_xy(10, 30)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_text_color(42, 33, 24)
+    pdf.cell(0, 10, name, ln=True)
+
+    pdf.set_xy(10, 41)
+    score_clr = (74, 103, 65) if score >= 30 else (139, 105, 20) if score >= 15 else (122, 106, 85)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*score_clr)
+    fired_n = p.get("signals_fired", 0)
+    total_n = p.get("signals_total", len(active_keys))
+    pdf.cell(0, 7, f"Opportunity Score: {score:.0f}%  ({fired_n} of {total_n} signals fired)", ln=True)
+
+    # ── Divider ───────────────────────────────────────────────────────────────
+    pdf.set_draw_color(212, 196, 160)       # #D4C4A0
+    pdf.set_line_width(0.3)
+    pdf.line(10, 50, 200, 50)
+
+    # ── Key metrics grid ──────────────────────────────────────────────────────
+    pdf.set_text_color(42, 33, 24)
+    pdf.set_xy(10, 54)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(139, 105, 20)
+    pdf.cell(0, 5, "KEY METRICS", ln=True)
+
+    metrics = [
+        ("Crop / Land Use",  crop),
+        ("Parcel Size",      f"{acres} acres"),
+        ("Nearest Airport",  airport),
+        ("Historic Feature", heritage),
+        ("GPS Coordinates",  gps),
+    ]
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(42, 33, 24)
+    for label, value in metrics:
+        pdf.set_x(10)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.cell(45, 7, label + ":", border=0)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 7, value, ln=True)
+
+    # ── Divider ───────────────────────────────────────────────────────────────
+    y = pdf.get_y() + 3
+    pdf.line(10, y, 200, y)
+
+    # ── Signals fired ─────────────────────────────────────────────────────────
+    pdf.set_xy(10, y + 4)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(139, 105, 20)
+    pdf.cell(0, 5, "SIGNALS FIRED", ln=True)
+
+    if fired_rows:
+        for row in fired_rows:
+            pdf.set_x(10)
+            label_txt = row["label"]
+            if row["proxy"]:
+                label_txt += " (proxy)"
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(74, 103, 65)
+            pdf.cell(55, 6, f"✓  {label_txt}", border=0)
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(42, 33, 24)
+            pdf.multi_cell(0, 6, row["detail"][:100])
+    else:
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.set_text_color(122, 106, 85)
+        pdf.set_x(10)
+        pdf.cell(0, 6, "No signals fired for this parcel.", ln=True)
+
+    # ── OSM link ──────────────────────────────────────────────────────────────
+    if osm_url:
+        y2 = pdf.get_y() + 2
+        pdf.line(10, y2, 200, y2)
+        pdf.set_xy(10, y2 + 4)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(139, 105, 20)
+        pdf.cell(30, 5, "OpenStreetMap URL:")
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(42, 33, 24)
+        pdf.cell(0, 5, osm_url[:90], ln=True)
+
+    # ── Page 2: full signal detail table ─────────────────────────────────────
+    pdf.add_page()
+    pdf.set_fill_color(42, 33, 24)
+    pdf.rect(0, 0, 210, 18, "F")
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(244, 239, 230)
+    pdf.set_xy(10, 5)
+    pdf.cell(0, 8, f"Intelligence Report — Full Signal Detail  ·  {name[:50]}")
+
+    pdf.set_text_color(42, 33, 24)
+    pdf.set_xy(10, 22)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(139, 105, 20)
+    pdf.cell(0, 5, "ALL SIGNAL DETAILS", ln=True)
+
+    col_widths = [48, 14, 22, 106]   # Signal, Fired, Quality, Detail
+    headers    = ["Signal", "Fired", "Data Quality", "Detail"]
+    pdf.set_fill_color(42, 33, 24)
+    pdf.set_text_color(244, 239, 230)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_x(10)
+    for w, h in zip(col_widths, headers):
+        pdf.cell(w, 7, h, border=0, fill=True)
+    pdf.ln()
+
+    fill = False
+    for row in (fired_rows + other_rows):
+        fill_clr = (250, 246, 239) if fill else (255, 255, 255)
+        pdf.set_fill_color(*fill_clr)
+        pdf.set_text_color(42, 33, 24)
+        row_y = pdf.get_y()
+
+        pdf.set_x(10)
+        pdf.set_font("Helvetica", "B" if row["fired"] else "", 8)
+        pdf.cell(col_widths[0], 6, row["label"][:28], fill=True)
+
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color((74, 103, 65) if row["fired"] else (122, 106, 85))
+        pdf.cell(col_widths[1], 6, "✓" if row["fired"] else "—", fill=True)
+
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(42, 33, 24)
+        quality = "⚡ proxy" if row["proxy"] else "authoritative"
+        pdf.cell(col_widths[2], 6, quality, fill=True)
+
+        # Detail may be long — use multi_cell to wrap
+        x_before = pdf.get_x()
+        pdf.set_font("Helvetica", "", 7)
+        pdf.multi_cell(col_widths[3], 6, row["detail"][:110] or "—", fill=True)
+        fill = not fill
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    pdf.set_y(-18)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(122, 106, 85)
+    pdf.cell(0, 5,
+             f"Generated {gen_date}  ·  Giovanni Bonelli Group  ·  Parcel Scout  ·  {region}",
+             align="C")
+
+    return bytes(pdf.output())
+
+
 # ── Map builder ───────────────────────────────────────────────────────────────
 
 def build_map(parcels: list) -> folium.Map:
@@ -931,6 +1192,24 @@ def build_map(parcels: list) -> folium.Map:
                 fill_color=color,
                 fill_opacity=0.9,
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
+            ).add_to(m)
+            # Score label floating at centroid — DivIcon gives us styled HTML
+            # text without an icon glyph, so it looks clean on the map.
+            folium.Marker(
+                location=[p["lat"], p["lon"]],
+                icon=folium.DivIcon(
+                    html=(
+                        f'<div style="font-family:Montserrat,sans-serif;'
+                        f'font-size:10px;font-weight:700;color:{color};'
+                        f'background:rgba(244,239,230,0.88);'
+                        f'padding:1px 5px;border:1px solid {color};'
+                        f'border-radius:2px;white-space:nowrap;'
+                        f'pointer-events:none;line-height:1.4;">'
+                        f'{score:.0f}</div>'
+                    ),
+                    icon_size=(30, 18),
+                    icon_anchor=(15, -8),  # place label just above centroid dot
+                ),
             ).add_to(m)
         else:
             # Fallback for any parcel missing geometry (shouldn't happen, but safe)
@@ -1380,7 +1659,7 @@ else:
     n_active = len(active_keys)
     m2.metric("Top Score",        f"{max(scores):.0f}%", help=f"Percentage of active signals fired ({n_active} signals running)")
     m3.metric("Average Score",    f"{sum(scores)/len(scores):.0f}%")
-    m4.metric("Signals Active",   f"{n_active} of 13", help="Enable more signals to deepen the analysis")
+    m4.metric("Signals Active",   f"{n_active} of {len(ALL_SIGNAL_KEYS)}", help="Enable more signals to deepen the analysis")
     if total_raw:
         st.caption(
             f"Scanned **{total_raw:,}** total parcels in {st.session_state.get('scan_region', config.REGION)}"
@@ -1511,6 +1790,21 @@ else:
                         "They are directionally correct but less precise. "
                         "See signal descriptions above for upgrade paths."
                     )
+
+            # ── PDF download ──────────────────────────────────────────────────
+            if _PDF_AVAILABLE:
+                pdf_bytes = generate_pdf(p, active_keys)
+                if pdf_bytes:
+                    safe_name = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")[:40]
+                    st.download_button(
+                        "⬇  Download Intelligence Report (PDF)",
+                        data=pdf_bytes,
+                        file_name=f"parcel_scout_{safe_name}.pdf",
+                        mime="application/pdf",
+                        key=f"pdf_dl_{idx}",
+                    )
+            else:
+                st.caption("Install fpdf2 to enable PDF downloads: `pip install fpdf2`")
 
         # Render cards in rows of 3; inject report immediately after the active row
         row_size = 3

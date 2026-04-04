@@ -13,3 +13,6 @@ sentinelhub>=3.9.0
 
 # Layer 6 — Digital Ghosting Index (WHOIS domain expiry check)
 python-whois>=0.9.0
+
+# Layer 9 (PDF export) — per-parcel Intelligence Report PDF download
+fpdf2>=2.7.0
