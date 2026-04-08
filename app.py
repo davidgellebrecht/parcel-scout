@@ -51,6 +51,62 @@ from rank import (
 # Set to False to hide the demo button entirely.
 DEMO_MODE = True
 
+# ── Theme toggle ──────────────────────────────────────────────────────────────
+# "dark"    → Stitch-inspired dark charcoal + sage green (current)
+# "classic" → original warm cream + gold palette
+# To undo the dark theme, change this one line to "classic".
+THEME = "dark"
+
+# ── Colour map for Folium (iframe — CSS custom properties don't reach inside) ─
+if THEME == "dark":
+    CLR_MAP = {
+        "score_high":   "#adceb9",   # sage green (score ≥ 30)
+        "score_mid":    "#c9b96a",   # warm gold  (score 15–29)
+        "score_low":    "#6e6e6e",   # grey        (score < 15)
+        "popup_bg":     "#1a1815",
+        "popup_border": "#3a3630",
+        "popup_text":   "#e5e2e1",
+        "popup_muted":  "#8e9192",
+        "chip_bg":      "#1a3320",
+        "chip_text":    "#7ecf9a",
+        "chip_border":  "#2d6044",
+    }
+else:
+    CLR_MAP = {
+        "score_high":   "#4A6741",
+        "score_mid":    "#8B6914",
+        "score_low":    "#7A6A55",
+        "popup_bg":     "#F4EFE6",
+        "popup_border": "#D4C4A0",
+        "popup_text":   "#2A2118",
+        "popup_muted":  "#7A6A55",
+        "chip_bg":      "#E8F5E9",
+        "chip_text":    "#2A4028",
+        "chip_border":  "#4A6741",
+    }
+
+# ── Material Symbols icon map (one per signal key) ────────────────────────────
+SIGNAL_ICON_MAP = {
+    "g2_premium_wine_zone":              "wine_bar",
+    "g2_distress_signal":                "warning",
+    "g2_succession_signal":              "family_history",
+    "g2_lodging_overlay":                "hotel",
+    "layer_satellite_neglect_signal":    "satellite_alt",
+    "layer_permit_paralysis_signal":     "gavel",
+    "layer_zoning_alchemy_signal":       "layers",
+    "layer_napa_neighbor_signal":        "emoji_events",
+    "layer_hospitality_fatigue_signal":  "sentiment_dissatisfied",
+    "layer_digital_ghost_signal":        "visibility_off",
+    "layer_succession_stress_signal":    "person_off",
+    "layer_terroir_score_delta_signal":  "diamond",
+    "layer_succession_frag_signal":      "account_tree",
+    "layer_owner_relocation_signal":     "near_me",
+    "layer_elevation_aspect_signal":     "terrain",
+    "layer_road_access_signal":          "add_road",
+    "layer_water_access_signal":         "water_drop",
+    "layer_listing_check_signal":        "storefront",
+}
+
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Parcel Scout — Giovanni Bonelli Group",
@@ -69,132 +125,196 @@ try:
 except Exception:
     pass
 
-# ── Giovanni Bonelli CSS ──────────────────────────────────────────────────────
-st.markdown("""
+# ── Material Symbols icon font (used in signal chips and cards) ───────────────
+st.markdown(
+    '<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined'
+    ':wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>',
+    unsafe_allow_html=True,
+)
+
+# ── Parcel Scout CSS — themed via CSS custom properties ───────────────────────
+_CSS_ROOT_DARK = """
+:root {
+    --bg:             #131313;
+    --surface:        #201f1f;
+    --surface-high:   #2a2a2a;
+    --surface-low:    #1c1b1b;
+    --surface-card:   #0e0e0e;
+    --text:           #e5e2e1;
+    --text-mid:       #c4c7c7;
+    --text-muted:     #8e9192;
+    --accent:         #adceb9;
+    --accent-text:    #183627;
+    --accent-dim:     rgba(173,206,185,0.12);
+    --border:         #444748;
+    --border-light:   rgba(255,255,255,0.06);
+    --success-bg:     #1a3320;
+    --success-text:   #7ecf9a;
+    --success-border: #2d6044;
+    --warn-bg:        #2a1f00;
+    --warn-text:      #ffd280;
+    --warn-border:    #7a5500;
+    --score-high:     #adceb9;
+    --score-mid:      #c9b96a;
+    --score-low:      #6e6e6e;
+    --serif:          'Noto Serif', Georgia, serif;
+    --sans:           'Manrope', system-ui, sans-serif;
+}
+"""
+_CSS_ROOT_CLASSIC = """
+:root {
+    --bg:             #F4EFE6;
+    --surface:        #FAF6EF;
+    --surface-high:   #FFFFFF;
+    --surface-low:    #F0EBE0;
+    --surface-card:   #E8E0CE;
+    --text:           #2A2118;
+    --text-mid:       #3A2E22;
+    --text-muted:     #7A6A55;
+    --accent:         #8B6914;
+    --accent-text:    #F4EFE6;
+    --accent-dim:     rgba(139,105,20,0.08);
+    --border:         #D4C4A0;
+    --border-light:   rgba(0,0,0,0.06);
+    --success-bg:     #E8F5E9;
+    --success-text:   #2A4028;
+    --success-border: #4A6741;
+    --warn-bg:        #FFF9E6;
+    --warn-text:      #1A1200;
+    --warn-border:    #C8860A;
+    --score-high:     #4A6741;
+    --score-mid:      #8B6914;
+    --score-low:      #7A6A55;
+    --serif:          'Cormorant Garamond', Georgia, serif;
+    --sans:           'Montserrat', system-ui, sans-serif;
+}
+"""
+
+_CSS_ROOT = _CSS_ROOT_DARK if THEME == "dark" else _CSS_ROOT_CLASSIC
+
+st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700;800&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap');
+{_CSS_ROOT}
 
 /* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header            { visibility: hidden; }
-.stDeployButton                      { display: none !important; }
-section[data-testid="stSidebar"]     { display: none !important; }
-[data-testid="collapsedControl"]     { display: none !important; }
+#MainMenu, footer, header            {{ visibility: hidden; }}
+.stDeployButton                      {{ display: none !important; }}
+section[data-testid="stSidebar"]     {{ display: none !important; }}
+[data-testid="collapsedControl"]     {{ display: none !important; }}
 
 /* ── Page background ── */
-.stApp {
-    background-color: #F4EFE6;
-}
-.main .block-container {
+.stApp {{
+    background-color: var(--bg);
+}}
+.main .block-container {{
     padding: 3rem 5rem 4rem 5rem;
     max-width: 1100px;
     margin: 0 auto;
-}
+}}
 
 /* ── Global typography ── */
-html, body, [class*="css"] {
-    font-family: 'Montserrat', sans-serif;
-    color: #2A2118;
-}
+html, body, [class*="css"] {{
+    font-family: var(--sans);
+    color: var(--text);
+}}
 
 /* ── Headings ── */
-h1 {
-    font-family: 'Cormorant Garamond', serif !important;
+h1 {{
+    font-family: var(--serif) !important;
     font-weight: 300 !important;
     font-size: 3.2rem !important;
     letter-spacing: 0.06em !important;
-    color: #2A2118 !important;
+    color: var(--text) !important;
     line-height: 1.1 !important;
     margin-bottom: 0.2rem !important;
-}
-h2, h3 {
-    font-family: 'Cormorant Garamond', serif !important;
+}}
+h2, h3 {{
+    font-family: var(--serif) !important;
     font-weight: 400 !important;
-    color: #2A2118 !important;
+    color: var(--text) !important;
     letter-spacing: 0.04em !important;
-}
+}}
 
 /* ── Section labels ── */
-.gb-label {
-    font-family: 'Cormorant Garamond', serif;
+.gb-label {{
+    font-family: var(--serif);
     font-size: 1.1rem;
     font-weight: 400;
     font-style: italic;
     letter-spacing: 0.03em;
-    color: #8B6914;
+    color: var(--accent);
     margin-bottom: 0.15rem;
     margin-top: 0.2rem;
     display: block;
-    border-bottom: 1px solid #D4C4A0;
+    border-bottom: 1px solid var(--border);
     padding-bottom: 0.3rem;
-}
+}}
 
 /* ── Divider ── */
-hr {
+hr {{
     border: none !important;
-    border-top: 1px solid #D4C4A0 !important;
+    border-top: 1px solid var(--border) !important;
     margin: 2rem 0 !important;
-}
+}}
 
 /* ── Selectbox ── */
-.stSelectbox > div > div {
-    background-color: #FFFFFF !important;
-    border: 1px solid #D4C4A0 !important;
+.stSelectbox > div > div {{
+    background-color: var(--surface-high) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 0 !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: var(--sans) !important;
     font-size: 0.85rem !important;
-    color: #2A2118 !important;
-}
+    color: var(--text) !important;
+}}
 
 /* ── Checkboxes ── */
 .stCheckbox > label,
 .stCheckbox > label > div,
 .stCheckbox > label > span,
-.stCheckbox span[data-testid="stMarkdownContainer"] p {
-    font-family: 'Montserrat', sans-serif !important;
+.stCheckbox span[data-testid="stMarkdownContainer"] p {{
+    font-family: var(--sans) !important;
     font-size: 0.82rem !important;
     font-weight: 500 !important;
-    color: #1A1210 !important;
+    color: var(--text) !important;
     letter-spacing: 0.02em !important;
     opacity: 1 !important;
-}
+}}
 
 /* ── Captions ── */
 .stCaption,
 [data-testid="stCaptionContainer"] p,
-[data-testid="stCaptionContainer"] {
-    font-family: 'Montserrat', sans-serif !important;
+[data-testid="stCaptionContainer"] {{
+    font-family: var(--sans) !important;
     font-size: 0.72rem !important;
-    color: #3A2E22 !important;
+    color: var(--text-mid) !important;
     line-height: 1.55 !important;
     opacity: 1 !important;
-}
+}}
 
 /* ── Expander header ── */
-/* Only target the text <p> inside summary — NOT the parent span or summary
-   itself. If font-family is set on summary or summary *, it inherits into
-   the Material Icons icon span and renders the chevron glyph as "_arro". */
-[data-testid="stExpander"] summary p {
-    font-family: 'Montserrat', sans-serif !important;
+[data-testid="stExpander"] summary p {{
+    font-family: var(--sans) !important;
     font-size: 0.78rem !important;
     font-weight: 500 !important;
-    color: #2A2118 !important;
+    color: var(--text) !important;
     line-height: 1.4 !important;
     opacity: 1 !important;
-}
-/* Tint the SVG chevron gold */
-[data-testid="stExpander"] summary svg {
-    color: #8B6914 !important;
-    fill: #8B6914 !important;
-}
+}}
+/* Tint the SVG chevron to accent colour */
+[data-testid="stExpander"] summary svg {{
+    color: var(--accent) !important;
+    fill: var(--accent) !important;
+}}
 
 /* ── Expander body (open state) ── */
 [data-testid="stExpander"] details > div,
-[data-testid="stExpander"] .streamlit-expanderContent {
-    background-color: #FAF6EF !important;
-    border: 1px solid #D4C4A0 !important;
+[data-testid="stExpander"] .streamlit-expanderContent {{
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
     padding: 1rem !important;
-}
-/* Expander body text — force dark, override Streamlit's blue-gray defaults */
+}}
+/* Expander body text */
 [data-testid="stExpander"] details > div p,
 [data-testid="stExpander"] details > div span,
 [data-testid="stExpander"] details > div li,
@@ -202,96 +322,97 @@ hr {
 [data-testid="stExpander"] details > div a,
 [data-testid="stExpander"] .streamlit-expanderContent p,
 [data-testid="stExpander"] .streamlit-expanderContent span,
-[data-testid="stExpander"] .streamlit-expanderContent strong {
-    color: #2A2118 !important;
-    font-family: 'Montserrat', sans-serif !important;
+[data-testid="stExpander"] .streamlit-expanderContent strong {{
+    color: var(--text) !important;
+    font-family: var(--sans) !important;
     font-size: 0.78rem !important;
     opacity: 1 !important;
-}
+}}
 
 /* ── Primary button (Run Scan) ── */
-.stButton > button[kind="primary"] {
+.stButton > button[kind="primary"] {{
     width: 100% !important;
-    background-color: #2A2118 !important;
-    color: #F4EFE6 !important;
-    font-family: 'Montserrat', sans-serif !important;
+    background-color: var(--accent) !important;
+    color: var(--accent-text) !important;
+    font-family: var(--sans) !important;
     font-size: 0.68rem !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
     letter-spacing: 0.22em !important;
     text-transform: uppercase !important;
     border: none !important;
     border-radius: 0 !important;
     padding: 1rem 2rem !important;
     margin-top: 0.5rem !important;
-    transition: background-color 0.2s !important;
-}
-.stButton > button[kind="primary"]:hover {
-    background-color: #8B6914 !important;
-}
+    transition: filter 0.2s !important;
+}}
+.stButton > button[kind="primary"]:hover {{
+    filter: brightness(1.15) !important;
+}}
 
 /* ── Dossier / secondary buttons ── */
-.stButton > button[kind="secondary"] {
-    background-color: #2A2118 !important;
-    color: #F4EFE6 !important;
-    border: 1px solid #8B6914 !important;
+.stButton > button[kind="secondary"] {{
+    background-color: var(--surface-low) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--accent) !important;
     border-radius: 0 !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: var(--sans) !important;
     font-size: 0.65rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
     padding: 0.7rem 1rem !important;
-}
-.stButton > button[kind="secondary"]:hover {
-    background-color: #8B6914 !important;
-    border-color: #8B6914 !important;
-}
+}}
+.stButton > button[kind="secondary"]:hover {{
+    background-color: var(--accent) !important;
+    color: var(--accent-text) !important;
+    border-color: var(--accent) !important;
+}}
 
 /* ── Secondary / download buttons ── */
-.stDownloadButton > button {
+.stDownloadButton > button {{
     background-color: transparent !important;
-    color: #2A2118 !important;
-    border: 1px solid #D4C4A0 !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 0 !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: var(--sans) !important;
     font-size: 0.65rem !important;
     letter-spacing: 0.12em !important;
     text-transform: uppercase !important;
-}
-.stDownloadButton > button:hover {
-    border-color: #2A2118 !important;
-    background-color: #2A2118 !important;
-    color: #F4EFE6 !important;
-}
+}}
+.stDownloadButton > button:hover {{
+    border-color: var(--accent) !important;
+    background-color: var(--accent) !important;
+    color: var(--accent-text) !important;
+}}
 
 /* ── Metrics ── */
-[data-testid="metric-container"] {
-    background: #FFFFFF;
-    border: 1px solid #D4C4A0;
+[data-testid="metric-container"] {{
+    background: var(--surface);
+    border: 1px solid var(--border);
     padding: 1.1rem 1.3rem;
-}
-[data-testid="metric-container"] label {
-    font-family: 'Montserrat', sans-serif !important;
+}}
+[data-testid="metric-container"] label {{
+    font-family: var(--sans) !important;
     font-size: 0.58rem !important;
     letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
-    color: #8B6914 !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    font-family: 'Cormorant Garamond', serif !important;
+    color: var(--accent) !important;
+}}
+[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+    font-family: var(--serif) !important;
     font-size: 2rem !important;
     font-weight: 400 !important;
-    color: #2A2118 !important;
-}
+    color: var(--text) !important;
+}}
 
 /* ── Tabs ── */
-.stTabs [data-baseweb="tab-list"] {
+.stTabs [data-baseweb="tab-list"] {{
     gap: 0;
-    border-bottom: 1px solid #D4C4A0;
+    border-bottom: 1px solid var(--border);
     background: transparent;
-}
-.stTabs [data-baseweb="tab"] {
-    font-family: 'Montserrat', sans-serif !important;
+}}
+.stTabs [data-baseweb="tab"] {{
+    font-family: var(--sans) !important;
     font-size: 0.62rem !important;
     font-weight: 500 !important;
     letter-spacing: 0.16em !important;
@@ -299,62 +420,69 @@ hr {
     padding: 0.8rem 1.6rem !important;
     background: transparent !important;
     border: none !important;
-    color: #8B6914 !important;
-}
-.stTabs [aria-selected="true"] {
+    color: var(--accent) !important;
+}}
+.stTabs [aria-selected="true"] {{
     background: transparent !important;
-    border-bottom: 2px solid #2A2118 !important;
-    color: #2A2118 !important;
-}
+    border-bottom: 2px solid var(--text) !important;
+    color: var(--text) !important;
+}}
 
 /* ── Info / status box ── */
-.stInfo {
-    background-color: #F0EBE0 !important;
-    border: 1px solid #D4C4A0 !important;
+.stInfo {{
+    background-color: var(--surface-low) !important;
+    border: 1px solid var(--border) !important;
     border-radius: 0 !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: var(--sans) !important;
     font-size: 0.8rem !important;
-    color: #2A2118 !important;
-}
+    color: var(--text) !important;
+}}
 
 /* ── Success boxes (Signals fired) ── */
 [data-testid="stAlert"][data-baseweb="notification"]:has(svg[data-testid="stAlertDynamicIcon-success"]),
-.stSuccess, [data-testid="stAlert"].stSuccess {
-    background-color: #E8F5E9 !important;
-    border: 1.5px solid #4A6741 !important;
+.stSuccess, [data-testid="stAlert"].stSuccess {{
+    background-color: var(--success-bg) !important;
+    border: 1.5px solid var(--success-border) !important;
     border-radius: 0 !important;
     opacity: 1 !important;
-}
-.stSuccess p, .stSuccess div, .stSuccess span {
-    color: #2A4028 !important;
-    font-family: 'Montserrat', sans-serif !important;
+}}
+.stSuccess p, .stSuccess div, .stSuccess span {{
+    color: var(--success-text) !important;
+    font-family: var(--sans) !important;
     font-weight: 600 !important;
     font-size: 0.75rem !important;
     opacity: 1 !important;
-}
+}}
 
 /* ── Warning box ── */
 .stWarning, [data-testid="stAlert"].stWarning,
-[data-testid="stAlert"]:has([data-testid="stAlertDynamicIcon-warning"]) {
-    background-color: #FFF9E6 !important;
-    border: 1px solid #C8860A !important;
+[data-testid="stAlert"]:has([data-testid="stAlertDynamicIcon-warning"]) {{
+    background-color: var(--warn-bg) !important;
+    border: 1px solid var(--warn-border) !important;
     border-radius: 0 !important;
     opacity: 1 !important;
-}
+}}
 .stWarning p, .stWarning li, .stWarning strong,
-.stWarning span, .stWarning code, .stWarning div {
-    color: #1A1200 !important;
-    font-family: 'Montserrat', sans-serif !important;
+.stWarning span, .stWarning code, .stWarning div {{
+    color: var(--warn-text) !important;
+    font-family: var(--sans) !important;
     font-size: 0.78rem !important;
     opacity: 1 !important;
-}
+}}
 
+/* ── Material Symbols glyphs (in Streamlit alert boxes) ── */
+.material-symbols-outlined {{
+    font-family: 'Material Symbols Outlined' !important;
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    line-height: 1;
+}}
 
 /* ── Demo button (red, only in the column that has .demo-marker) ── */
-[data-testid="column"]:has(.demo-marker) button {
+[data-testid="column"]:has(.demo-marker) button {{
     background-color: #B71C1C !important;
     color: #FFFFFF !important;
-    font-family: 'Montserrat', sans-serif !important;
+    font-family: var(--sans) !important;
     font-size: 0.62rem !important;
     font-weight: 700 !important;
     letter-spacing: 0.14em !important;
@@ -364,53 +492,53 @@ hr {
     width: 100% !important;
     padding: 0.9rem 1rem !important;
     animation: demo-pulse 2.5s ease-in-out infinite;
-}
-[data-testid="column"]:has(.demo-marker) button:hover {
+}}
+[data-testid="column"]:has(.demo-marker) button:hover {{
     background-color: #7F0000 !important;
-}
-@keyframes demo-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(183,28,28,0.5); }
-    50%       { box-shadow: 0 0 0 6px rgba(183,28,28,0); }
-}
+}}
+@keyframes demo-pulse {{
+    0%, 100% {{ box-shadow: 0 0 0 0 rgba(183,28,28,0.5); }}
+    50%       {{ box-shadow: 0 0 0 6px rgba(183,28,28,0); }}
+}}
 
 /* ── Hero image strip ── */
-[data-testid="stImage"] img {
+[data-testid="stImage"] img {{
     object-fit: cover;
     height: 200px;
     width: 100%;
     display: block;
-}
-[data-testid="stImage"] {
+}}
+[data-testid="stImage"] {{
     padding: 0 !important;
     margin: 0 !important;
-}
+}}
 
 /* ── Dataframe ── */
-.stDataFrame { border: 1px solid #D4C4A0 !important; }
+.stDataFrame {{ border: 1px solid var(--border) !important; }}
 
 /* ── Status widget (scan progress) ── */
-[data-testid="stStatusWidget"] {
-    background-color: #2A2118 !important;
-}
+[data-testid="stStatusWidget"] {{
+    background-color: var(--surface-low) !important;
+}}
 [data-testid="stStatusWidget"] p,
 [data-testid="stStatusWidget"] span,
-[data-testid="stStatusWidget"] div {
-    color: #F4EFE6 !important;
-    font-family: 'Montserrat', sans-serif !important;
+[data-testid="stStatusWidget"] div {{
+    color: var(--text) !important;
+    font-family: var(--sans) !important;
     font-size: 0.78rem !important;
     opacity: 1 !important;
-}
+}}
 /* Status expanded body */
-[data-testid="stStatusWidget"] > div:last-child {
-    background-color: #FAF6EF !important;
-    border: 1px solid #D4C4A0 !important;
+[data-testid="stStatusWidget"] > div:last-child {{
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
     padding: 0.8rem 1rem !important;
-}
+}}
 [data-testid="stStatusWidget"] > div:last-child p,
-[data-testid="stStatusWidget"] > div:last-child span {
-    color: #2A2118 !important;
+[data-testid="stStatusWidget"] > div:last-child span {{
+    color: var(--text-mid) !important;
     font-size: 0.75rem !important;
-}
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -831,11 +959,23 @@ def rescore(parcels: list, active_keys: list) -> list:
 
 
 def score_color(score: float) -> str:
+    """Return a CSS expression for the score tier colour.
+    Streamlit DOM: returns CSS custom property var() references.
+    Folium context (iframe): use CLR_MAP directly instead of calling this."""
     if score >= 30:
-        return "#4A6741"
+        return "var(--score-high)"
     if score >= 15:
-        return "#8B6914"
-    return "#7A6A55"
+        return "var(--score-mid)"
+    return "var(--score-low)"
+
+
+def score_color_map(score: float) -> str:
+    """Concrete hex colour for use inside Folium iframes (CSS vars don't reach)."""
+    if score >= 30:
+        return CLR_MAP["score_high"]
+    if score >= 15:
+        return CLR_MAP["score_mid"]
+    return CLR_MAP["score_low"]
 
 
 # ── Pipeline runner ───────────────────────────────────────────────────────────
@@ -1137,28 +1277,41 @@ def build_map(parcels: list) -> folium.Map:
     lats   = [p["lat"] for p in parcels]
     lons   = [p["lon"] for p in parcels]
     center = [sum(lats) / len(lats), sum(lons) / len(lons)]
-    m      = folium.Map(location=center, zoom_start=10, tiles="CartoDB positron")
+
+    # Dark mode uses CartoDB dark matter tiles; classic uses positron
+    tiles  = "CartoDB dark_matter" if THEME == "dark" else "CartoDB positron"
+    m      = folium.Map(location=center, zoom_start=10, tiles=tiles)
+
+    # Colours from CLR_MAP — concrete hex because Folium renders inside an iframe
+    # where CSS custom properties from the Streamlit page cannot reach.
+    _pb = CLR_MAP["popup_bg"]
+    _pt = CLR_MAP["popup_text"]
+    _pm = CLR_MAP["popup_muted"]
+    _pb2= CLR_MAP["popup_border"]
+    _ca = CLR_MAP["score_high"]   # accent colour for links
+    _cb = CLR_MAP["chip_bg"]
+    _ct = CLR_MAP["chip_text"]
+    _cbr= CLR_MAP["chip_border"]
 
     for p in parcels:
         score   = p.get("opportunity_score", 0)
-        color   = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#9CA3AF"
+        color   = score_color_map(score)    # concrete hex via CLR_MAP
         name    = p.get("name") or p.get("gps_coordinates", "")
         signals = signals_fired_list(p)
         sig_html = "".join(
-            f'<span style="background:#f0ebe0;color:#2A2118;padding:2px 6px;'
-            f'border:1px solid #D4C4A0;font-size:10px;margin:2px;display:inline-block;">{s}</span>'
+            f'<span style="background:{_cb};color:{_ct};padding:2px 6px;'
+            f'border:1px solid {_cbr};font-size:10px;margin:2px;display:inline-block;">{s}</span>'
             for s in signals
-        ) or "<em style='color:#7A6A55'>no signals</em>"
+        ) or f"<em style='color:{_pm}'>no signals</em>"
 
         popup_html = f"""
-        <div style="font-family:'Montserrat',sans-serif;min-width:230px;color:#2A2118;
-                    background:#F4EFE6;padding:14px;border:1px solid #D4C4A0;">
-          <div style="font-family:'Cormorant Garamond',serif;font-size:22px;
-                      font-weight:400;color:{color};">{score:.1f}
-            <span style="font-size:12px;color:#7A6A55;">/100</span>
+        <div style="font-family:'Manrope',system-ui,sans-serif;min-width:230px;
+                    color:{_pt};background:{_pb};padding:14px;border:1px solid {_pb2};">
+          <div style="font-size:22px;font-weight:700;color:{color};">{score:.1f}
+            <span style="font-size:12px;color:{_pm};">/100</span>
           </div>
           <div style="font-size:12px;font-weight:500;margin:4px 0 8px;">{name[:50]}</div>
-          <div style="font-size:10px;color:#7A6A55;margin-bottom:6px;">
+          <div style="font-size:10px;color:{_pm};margin-bottom:6px;">
             {p.get('primary_crop_type','').title()} &nbsp;·&nbsp;
             {p.get('parcel_acres',0):.0f} acres &nbsp;·&nbsp;
             {p.get('dist_airport_km',0):.0f} km to {p.get('airport_iata','')}
@@ -1166,24 +1319,23 @@ def build_map(parcels: list) -> folium.Map:
           <div style="margin-top:8px;">{sig_html}</div>
           <div style="margin-top:10px;font-size:10px;">
             <a href="{p.get('osm_url','')}" target="_blank"
-               style="color:#8B6914;text-decoration:none;">View on OpenStreetMap ↗</a>
+               style="color:{_ca};text-decoration:none;">View on OpenStreetMap ↗</a>
           </div>
         </div>
         """
         poly_coords = p.get("polygon_coords", [])
         if poly_coords:
-            # Draw the real field boundary as a filled polygon
             folium.Polygon(
                 locations=poly_coords,
                 color=color,
                 weight=2,
                 fill=True,
                 fill_color=color,
-                fill_opacity=0.25,
+                fill_opacity=0.28,
                 popup=folium.Popup(popup_html, max_width=280),
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
             ).add_to(m)
-            # Small centroid dot so the parcel is still visible at low zoom
+            # Centroid dot — visible at low zoom
             folium.CircleMarker(
                 location=[p["lat"], p["lon"]],
                 radius=5,
@@ -1193,26 +1345,26 @@ def build_map(parcels: list) -> folium.Map:
                 fill_opacity=0.9,
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
             ).add_to(m)
-            # Score label floating at centroid — DivIcon gives us styled HTML
-            # text without an icon glyph, so it looks clean on the map.
+            # Score label — DivIcon floating above centroid dot
+            label_bg = "rgba(19,19,19,0.88)" if THEME == "dark" else "rgba(244,239,230,0.88)"
             folium.Marker(
                 location=[p["lat"], p["lon"]],
                 icon=folium.DivIcon(
                     html=(
-                        f'<div style="font-family:Montserrat,sans-serif;'
+                        f'<div style="font-family:Manrope,system-ui,sans-serif;'
                         f'font-size:10px;font-weight:700;color:{color};'
-                        f'background:rgba(244,239,230,0.88);'
+                        f'background:{label_bg};'
                         f'padding:1px 5px;border:1px solid {color};'
                         f'border-radius:2px;white-space:nowrap;'
                         f'pointer-events:none;line-height:1.4;">'
                         f'{score:.0f}</div>'
                     ),
                     icon_size=(30, 18),
-                    icon_anchor=(15, -8),  # place label just above centroid dot
+                    icon_anchor=(15, -8),
                 ),
             ).add_to(m)
         else:
-            # Fallback for any parcel missing geometry (shouldn't happen, but safe)
+            # Fallback for parcels without polygon geometry
             folium.CircleMarker(
                 location=[p["lat"], p["lon"]],
                 radius=10 + score / 10,
@@ -1224,60 +1376,53 @@ def build_map(parcels: list) -> folium.Map:
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
             ).add_to(m)
 
-    # ── Soil Lithology WMS overlay (ISPRA — Carta Litologica d'Italia) ────────
-    # Toggle is in the map's top-right corner via LayerControl.
-    # Source: Italian National Environmental Agency (ISPRA), 1:100,000 scale.
-    # No authentication required — free public WMS.
+    # ── Soil Lithology WMS overlay (ISPRA) ────────────────────────────────────
     folium.WmsTileLayer(
         url="https://sinacloud.isprambiente.it/arcgisgeo/services/geo/SGI_ISPRA_Geologia25k/MapServer/WMSServer",
-        layers="0",       # layer 0 = Unità geologiche (geological units)
+        layers="0",
         fmt="image/png",
         transparent=True,
         name="Soil Lithology (ISPRA)",
-        show=False,       # off by default — enable via toggle top-right
+        show=False,
         opacity=0.65,
         attr='<a href="https://portalesgi.isprambiente.it" target="_blank">ISPRA — Carta Geologica d\'Italia 1:25,000</a>',
-        # The 1:25,000 dataset only has tiles at zoom 11+. Setting min_zoom prevents
-        # the browser from making tile requests that will return blank at lower zoom levels.
         min_zoom=11,
     ).add_to(m)
 
-    # ── Italian Land Registry overlay (Agenzia delle Entrate — Catasto) ─────────
-    # Shows official cadastral parcel boundaries from the Italian government land
-    # registry. These are the legal property lines, not OSM estimates.
-    # Free INSPIRE-compliant WMS — no authentication required.
-    # Only renders at zoom 15+ (cadastral detail requires street-level zoom).
+    # ── Italian Land Registry overlay (Catasto) ───────────────────────────────
     folium.WmsTileLayer(
         url="https://wms.cartografia.agenziaentrate.gov.it/inspire/wms/ows01.php",
-        layers="CP.CadastralParcel",   # INSPIRE Cadastral Parcels theme
+        layers="CP.CadastralParcel",
         fmt="image/png",
         transparent=True,
         name="Cadastral Parcels (Catasto)",
-        show=False,       # off by default — useful when zoomed into a specific estate
+        show=False,
         opacity=0.80,
         attr='<a href="https://www.agenziaentrate.gov.it" target="_blank">Agenzia delle Entrate — Catasto d\'Italia</a>',
-        # Cadastral detail only exists at very high zoom. Requesting tiles at lower
-        # zoom levels returns blank PNGs from the server.
         min_zoom=15,
     ).add_to(m)
 
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
 
-    # ── Soil legend ───────────────────────────────────────────────────────────
-    legend_html = """
+    # ── Soil legend (themed) ──────────────────────────────────────────────────
+    _legend_bg     = "#1a1815" if THEME == "dark" else "#F4EFE6"
+    _legend_border = "#3a3630" if THEME == "dark" else "#D4C4A0"
+    _legend_text   = "#e5e2e1" if THEME == "dark" else "#2A2118"
+    _legend_muted  = "#8e9192" if THEME == "dark" else "#7A6A55"
+    legend_html = f"""
     <div style="position:fixed;bottom:30px;left:12px;z-index:9999;
-                background:#F4EFE6;border:1px solid #D4C4A0;padding:10px 14px;
-                font-family:'Montserrat',sans-serif;font-size:11px;color:#2A2118;
-                border-radius:3px;max-width:195px;box-shadow:0 2px 6px rgba(0,0,0,.15);">
-      <div style="font-weight:600;margin-bottom:5px;">Soil Lithology (ISPRA)</div>
+                background:{_legend_bg};border:1px solid {_legend_border};padding:10px 14px;
+                font-family:'Manrope',system-ui,sans-serif;font-size:11px;color:{_legend_text};
+                border-radius:3px;max-width:195px;box-shadow:0 2px 6px rgba(0,0,0,.3);">
+      <div style="font-weight:700;margin-bottom:5px;letter-spacing:0.05em;">Soil Lithology (ISPRA)</div>
       <div><span style="color:#C0392B;font-size:14px;">&#9632;</span> Volcanic / igneous</div>
       <div><span style="color:#7F8C8D;font-size:14px;">&#9632;</span> Limestone / carbonate</div>
       <div><span style="color:#D4AC0D;font-size:14px;">&#9632;</span> Clay / sedimentary</div>
-      <div><span style="color:#1A5276;font-size:14px;">&#9632;</span> Alluvial / fluvial</div>
-      <div style="margin-top:6px;font-size:9px;color:#7A6A55;line-height:1.4;">
+      <div><span style="color:#5DADE2;font-size:14px;">&#9632;</span> Alluvial / fluvial</div>
+      <div style="margin-top:6px;font-size:9px;color:{_legend_muted};line-height:1.4;">
         Enable "Soil Lithology" ↗ to see geology.<br>
         <strong>Zoom in to load tiles.</strong><br>
-        Coverage gaps = survey not yet published by ISPRA for that area.
+        Coverage gaps = survey not yet published by ISPRA.
       </div>
     </div>
     """
@@ -1475,13 +1620,13 @@ for i, sm in enumerate(paid_layers):
 
 # ── Premium layer reference table ────────────────────────────────────────────
 with st.expander("Premium Layer Reference — costs, free tiers & setup guide"):
-    td = 'style="padding:0.55rem 0.9rem; border-bottom:1px solid #EDE6D8; vertical-align:top;"'
-    th = 'style="padding:0.65rem 0.9rem; text-align:left; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; font-size:0.60rem; color:#F4EFE6;"'
+    td = 'style="padding:0.55rem 0.9rem;border-bottom:1px solid var(--border);vertical-align:top;"'
+    th = 'style="padding:0.65rem 0.9rem;text-align:left;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;font-size:0.60rem;color:var(--accent);"'
 
     header = (
-        '<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;'
-        'font-size:0.75rem;color:#2A2118;border:1px solid #D4C4A0;">'
-        '<thead><tr style="background:#2A2118;">'
+        '<table style="width:100%;border-collapse:collapse;font-family:var(--sans);'
+        'font-size:0.75rem;color:var(--text);border:1px solid var(--border);">'
+        '<thead><tr style="background:var(--surface-low);">'
         f'<th {th}>Layer</th>'
         f'<th {th}>API Source</th>'
         f'<th {th}>Cost</th>'
@@ -1495,19 +1640,19 @@ with st.expander("Premium Layer Reference — costs, free tiers & setup guide"):
     for i, sm in enumerate(paid_layers):
         _, cfg_key = sm["config"]
         info      = PREMIUM_LAYER_INFO.get(cfg_key, {})
-        free_tier = info.get("free_tier") or '<span style="color:#7A6A55;">None</span>'
+        free_tier = info.get("free_tier") or '<span style="color:var(--text-muted);">None</span>'
         without   = (
-            '<span style="color:#8B6914;font-weight:600;">Limited data</span>'
+            '<span style="color:var(--accent);font-weight:600;">Limited data</span>'
             ' — free components still run'
             if info.get("degrades") else
-            '<span style="color:#9B3A2A;font-weight:600;">No data</span>'
+            '<span style="color:#e57373;font-weight:600;">No data</span>'
             ' — layer inactive'
         )
-        row_bg = "#FFFFFF" if i % 2 == 0 else "#FAF6EF"
-        cred   = f'<code style="font-size:0.68rem;color:#8B6914;">{LAYER_CRED.get(cfg_key, "—")}</code>'
+        row_bg = "var(--surface-high)" if i % 2 == 0 else "var(--surface)"
+        cred   = f'<code style="font-size:0.68rem;color:var(--accent);">{LAYER_CRED.get(cfg_key, "—")}</code>'
         body += (
             f'<tr style="background:{row_bg};">'
-            f'<td {td} style="padding:0.55rem 0.9rem;border-bottom:1px solid #EDE6D8;'
+            f'<td {td} style="padding:0.55rem 0.9rem;border-bottom:1px solid var(--border);'
             f'vertical-align:top;font-weight:600;white-space:nowrap;">{sm["label"]}</td>'
             f'<td {td}>{info.get("api", "—")}</td>'
             f'<td {td}>{info.get("cost", "—")}</td>'
@@ -1519,9 +1664,9 @@ with st.expander("Premium Layer Reference — costs, free tiers & setup guide"):
 
     footer = (
         '</tbody></table>'
-        '<p style="font-size:0.65rem;color:#7A6A55;margin-top:0.6rem;">'
+        '<p style="font-size:0.65rem;color:var(--text-muted);margin-top:0.6rem;">'
         'Set credentials in <strong>Streamlit Secrets</strong> (cloud) or '
-        '<code style="color:#8B6914;">config.py</code> (local).'
+        '<code style="color:var(--accent);">config.py</code> (local).'
         '</p>'
     )
 
@@ -1542,19 +1687,24 @@ if missing_creds:
         impact = "Limited data — free components still run" if info["degrades"] else "No data — layer contributes nothing to scores"
         rows_html += (
             f'<li style="margin-bottom:0.5rem;">'
-            f'<strong style="color:#1A1200;">{label}</strong>'
-            f' &mdash; needs <code style="background:#FFF0A0;padding:1px 4px;border-radius:2px;color:#8B4513;font-size:0.72rem;">{cred_var}</code>'
+            f'<strong style="color:var(--warn-text);">{label}</strong>'
+            f' &mdash; needs <code style="background:var(--surface-low);padding:1px 4px;'
+            f'border-radius:2px;color:var(--accent);font-size:0.72rem;">{cred_var}</code>'
             f' &mdash; {impact}<br>'
-            f'<span style="color:#5C4A00;font-size:0.72rem;">↳ {info["setup"]}</span>'
+            f'<span style="color:var(--text-muted);font-size:0.72rem;">↳ {info["setup"]}</span>'
             f'</li>'
         )
     st.markdown(
-        f'<div style="background:#FFF9C4;border:1.5px solid #F9A825;padding:1rem 1.2rem;margin:0.5rem 0;">'
-        f'<p style="color:#1A1200;font-weight:700;margin:0 0 0.4rem 0;font-family:Montserrat,sans-serif;font-size:0.82rem;">'
+        f'<div style="background:var(--warn-bg);border:1.5px solid var(--warn-border);'
+        f'padding:1rem 1.2rem;margin:0.5rem 0;">'
+        f'<p style="color:var(--warn-text);font-weight:700;margin:0 0 0.4rem 0;'
+        f'font-family:var(--sans);font-size:0.82rem;">'
         f'⚠ {n} premium layer{"s" if n > 1 else ""} enabled without credentials.</p>'
-        f'<p style="color:#1A1200;margin:0 0 0.6rem 0;font-family:Montserrat,sans-serif;font-size:0.78rem;">'
+        f'<p style="color:var(--warn-text);margin:0 0 0.6rem 0;'
+        f'font-family:var(--sans);font-size:0.78rem;">'
         f'The scan will still run — but these layers will be inactive:</p>'
-        f'<ul style="color:#1A1200;font-family:Montserrat,sans-serif;font-size:0.78rem;margin:0;padding-left:1.2rem;">'
+        f'<ul style="color:var(--warn-text);font-family:var(--sans);font-size:0.78rem;'
+        f'margin:0;padding-left:1.2rem;">'
         f'{rows_html}</ul></div>',
         unsafe_allow_html=True,
     )
@@ -1624,13 +1774,13 @@ st.markdown("---")
 if "parcels" not in st.session_state or not st.session_state.parcels:
     if not st.session_state.get("parcels"):
         st.markdown(
-            '<div style="background:#F0EBE0 !important;border:1px solid #D4C4A0 !important;'
-            'border-radius:0 !important;padding:1rem 1.2rem !important;">'
-            '<p style="color:#2A2118 !important;font-family:Montserrat,sans-serif !important;'
-            'font-size:0.82rem !important;margin:0 0 0.3rem 0 !important;">'
+            '<div style="background:var(--surface-low);border:1px solid var(--border);'
+            'padding:1rem 1.2rem;">'
+            '<p style="color:var(--text);font-family:var(--sans);'
+            'font-size:0.82rem;margin:0 0 0.3rem 0;">'
             'Configure your parameters above and click <strong>Run Off-Market Scan</strong> to begin.</p>'
-            '<p style="color:#5C4B2A !important;font-family:Montserrat,sans-serif !important;'
-            'font-size:0.78rem !important;margin:0 !important;">'
+            '<p style="color:var(--text-muted);font-family:var(--sans);'
+            'font-size:0.78rem;margin:0;">'
             'The scan queries OpenStreetMap and takes approximately 3–4 minutes for a full province.</p>'
             '</div>',
             unsafe_allow_html=True,
@@ -1716,16 +1866,16 @@ else:
             score     = p["opportunity_score"]
             name      = (p.get("name") or p.get("gps_coordinates", f"Parcel #{idx+1}"))
             fired     = signals_fired_list(p)
-            score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
+            score_clr = score_color(score)
 
             st.markdown(
                 f'<div style="margin:0.8rem 0 1rem;padding:1.2rem 1.4rem;'
-                f'background:#F0EBE0;border:1px solid #D4C4A0;border-top:3px solid #8B6914;">'
-                f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
-                f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;">Intelligence Report</div>'
-                f'<div style="font-family:\'Cormorant Garamond\',serif;font-size:2.2rem;font-weight:300;'
-                f'color:#2A2118;line-height:1.1;margin-top:0.15rem;">{name}</div>'
-                f'<div style="font-family:Montserrat,sans-serif;font-size:0.68rem;color:{score_clr};'
+                f'background:var(--surface-low);border:1px solid var(--border);border-top:3px solid var(--accent);">'
+                f'<div style="font-family:var(--sans);font-size:0.56rem;font-weight:700;'
+                f'letter-spacing:0.2em;text-transform:uppercase;color:var(--accent);">Intelligence Report</div>'
+                f'<div style="font-family:var(--serif);font-size:2.2rem;font-weight:300;'
+                f'color:var(--text);line-height:1.1;margin-top:0.15rem;">{name}</div>'
+                f'<div style="font-family:var(--sans);font-size:0.68rem;color:{score_clr};'
                 f'font-weight:600;margin-top:0.25rem;letter-spacing:0.05em;">'
                 f'Opportunity Score: {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))} signals)'
                 f'</div></div>',
@@ -1753,10 +1903,20 @@ else:
             if fired:
                 sig_cols = st.columns(min(len(fired), 4))
                 for i, sig in enumerate(fired):
+                    sm_match = next((s for s in SIGNAL_META if s["label"] == sig), None)
+                    icon = SIGNAL_ICON_MAP.get(sm_match["key"], "check_circle") if sm_match else "check_circle"
                     if sig in _proxy_labels:
                         sig_cols[i % 4].warning(f"⚡ {sig}  *(proxy)*")
                     else:
-                        sig_cols[i % 4].success(f"✓ {sig}")
+                        sig_cols[i % 4].markdown(
+                            f'<div style="background:var(--success-bg);border:1.5px solid var(--success-border);'
+                            f'padding:0.4rem 0.6rem;border-radius:2px;margin-bottom:0.3rem;">'
+                            f'<span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;'
+                            f'color:var(--success-text);">{icon}</span>'
+                            f'<span style="font-family:var(--sans);font-size:0.72rem;color:var(--success-text);'
+                            f'font-weight:600;margin-left:4px;">{sig}</span></div>',
+                            unsafe_allow_html=True,
+                        )
             else:
                 st.caption("No signals fired for this parcel.")
 
@@ -1823,59 +1983,59 @@ else:
                 airport   = f"{int(round(p.get('dist_airport_km', 0)))} km · {p.get('airport_iata', '')}"
                 crop      = p.get("primary_crop_type", "").replace("_", " ").title() or "—"
                 heritage  = p.get("closest_historic_tag", "").title() or "—"
-                score_clr = "#4A6741" if score >= 30 else "#8B6914" if score >= 15 else "#7A6A55"
+                score_clr = score_color(score)
                 is_open   = (active_dossier == idx)
 
                 with col:
                     osm_link = p.get("osm_url", f"https://www.openstreetmap.org/#map=15/{lat}/{lon}")
                     st.markdown(
                         f'<a href="{osm_link}" target="_blank" style="text-decoration:none;">'
-                        f'<div style="width:100%;height:155px;background:#E8E0CE;margin-bottom:0;'
+                        f'<div style="width:100%;height:155px;background:var(--surface-card);margin-bottom:0;'
                         f'display:flex;flex-direction:column;align-items:center;justify-content:center;'
-                        f'border:1px solid #D4C4A0;cursor:pointer;">'
+                        f'border:1px solid var(--border);cursor:pointer;">'
                         f'<div style="font-size:1.6rem;margin-bottom:0.4rem;">🗺</div>'
-                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.6rem;font-weight:600;'
-                        f'letter-spacing:0.12em;text-transform:uppercase;color:#5C4B2A;margin-bottom:0.25rem;">'
+                        f'<div style="font-family:var(--sans);font-size:0.6rem;font-weight:600;'
+                        f'letter-spacing:0.12em;text-transform:uppercase;color:var(--text-mid);margin-bottom:0.25rem;">'
                         f'{lat:.4f}, {lon:.4f}</div>'
-                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.55rem;color:#8B6914;'
+                        f'<div style="font-family:var(--sans);font-size:0.55rem;color:var(--accent);'
                         f'letter-spacing:0.08em;">View on OpenStreetMap ↗</div>'
                         f'</div></a>',
                         unsafe_allow_html=True,
                     )
                     st.markdown(
-                        f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid #EDE6D8;">'
-                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.56rem;font-weight:700;'
+                        f'<div style="padding:0.75rem 0 0.5rem;border-bottom:1px solid var(--border);">'
+                        f'<div style="font-family:var(--sans);font-size:0.56rem;font-weight:700;'
                         f'letter-spacing:0.18em;text-transform:uppercase;color:{score_clr};margin-bottom:0.2rem;">'
                         f'Score {score:.0f}% ({p.get("signals_fired",0)} of {p.get("signals_total", len(active_keys))})</div>'
-                        f'<div style="font-family:\'Cormorant Garamond\',serif;font-weight:400;font-size:1.35rem;'
-                        f'color:#2A2118;line-height:1.25;">{name[:55]}</div>'
+                        f'<div style="font-family:var(--serif);font-weight:400;font-size:1.35rem;'
+                        f'color:var(--text);line-height:1.25;">{name[:55]}</div>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
                     st.markdown(
-                        f'<div style="padding:0.6rem 0;border-bottom:1px solid #EDE6D8;">'
-                        f'<div style="font-family:Montserrat,sans-serif;font-size:0.52rem;font-weight:700;'
-                        f'letter-spacing:0.2em;text-transform:uppercase;color:#8B6914;margin-bottom:0.4rem;">Key Intel</div>'
-                        f'<table style="width:100%;border-collapse:collapse;font-family:Montserrat,sans-serif;font-size:0.72rem;color:#3A2E22;">'
-                        f'<tr><td style="padding:2px 0;width:1.2rem;">⬜</td><td style="padding:2px 4px;color:#7A6A55;">Footprint</td><td style="padding:2px 0;text-align:right;font-weight:500;">{acres} acres</td></tr>'
-                        f'<tr><td style="padding:2px 0;">🌿</td><td style="padding:2px 4px;color:#7A6A55;">Soil / Use</td><td style="padding:2px 0;text-align:right;font-weight:500;">{crop}</td></tr>'
-                        f'<tr><td style="padding:2px 0;">✈</td><td style="padding:2px 4px;color:#7A6A55;">Airport</td><td style="padding:2px 0;text-align:right;font-weight:500;">{airport}</td></tr>'
-                        f'<tr><td style="padding:2px 0;">🏛</td><td style="padding:2px 4px;color:#7A6A55;">Heritage</td><td style="padding:2px 0;text-align:right;font-weight:500;">{heritage}</td></tr>'
+                        f'<div style="padding:0.6rem 0;border-bottom:1px solid var(--border);">'
+                        f'<div style="font-family:var(--sans);font-size:0.52rem;font-weight:700;'
+                        f'letter-spacing:0.2em;text-transform:uppercase;color:var(--accent);margin-bottom:0.4rem;">Key Intel</div>'
+                        f'<table style="width:100%;border-collapse:collapse;font-family:var(--sans);font-size:0.72rem;color:var(--text-mid);">'
+                        f'<tr><td style="padding:2px 0;width:1.2rem;">⬜</td><td style="padding:2px 4px;color:var(--text-muted);">Footprint</td><td style="padding:2px 0;text-align:right;font-weight:500;">{acres} acres</td></tr>'
+                        f'<tr><td style="padding:2px 0;">🌿</td><td style="padding:2px 4px;color:var(--text-muted);">Soil / Use</td><td style="padding:2px 0;text-align:right;font-weight:500;">{crop}</td></tr>'
+                        f'<tr><td style="padding:2px 0;">✈</td><td style="padding:2px 4px;color:var(--text-muted);">Airport</td><td style="padding:2px 0;text-align:right;font-weight:500;">{airport}</td></tr>'
+                        f'<tr><td style="padding:2px 0;">🏛</td><td style="padding:2px 4px;color:var(--text-muted);">Heritage</td><td style="padding:2px 0;text-align:right;font-weight:500;">{heritage}</td></tr>'
                         f'</table></div>',
                         unsafe_allow_html=True,
                     )
                     if fired:
                         chips = "".join(
-                            f'<span style="display:inline-block;background:#E8F5E9;color:#2A4028;'
-                            f'border:1px solid #4A6741;font-family:Montserrat,sans-serif;'
+                            f'<span style="display:inline-block;background:var(--success-bg);color:var(--success-text);'
+                            f'border:1px solid var(--success-border);font-family:var(--sans);'
                             f'font-size:0.58rem;padding:2px 6px;margin:2px 2px 0 0;">✓ {sig}</span>'
                             for sig in fired
                         )
                         st.markdown(f'<div style="padding:0.5rem 0 0.6rem;">{chips}</div>', unsafe_allow_html=True)
                     else:
                         st.markdown(
-                            '<div style="padding:0.5rem 0 0.6rem;font-family:Montserrat,sans-serif;'
-                            'font-size:0.7rem;color:#7A6A55;font-style:italic;">No signals fired</div>',
+                            '<div style="padding:0.5rem 0 0.6rem;font-family:var(--sans);'
+                            'font-size:0.7rem;color:var(--text-muted);font-style:italic;">No signals fired</div>',
                             unsafe_allow_html=True,
                         )
                     btn_label = "Close Report  ✕" if is_open else "View Intelligence Report"
@@ -1911,8 +2071,8 @@ else:
 # ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown(
-    '<p style="font-family:\'Cormorant Garamond\',serif;font-size:0.9rem;'
-    'color:#7A6A55;text-align:center;letter-spacing:0.08em;">'
+    '<p style="font-family:var(--serif);font-size:0.9rem;'
+    'color:var(--text-muted);text-align:center;letter-spacing:0.08em;">'
     'Giovanni Bonelli Group &nbsp;·&nbsp; Parcel Scout &nbsp;·&nbsp; Tuscany Acquisition Intelligence'
     '</p>',
     unsafe_allow_html=True,
