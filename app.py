@@ -63,10 +63,10 @@ if THEME == "dark":
         "score_high":   "#adceb9",   # sage green (score ≥ 30)
         "score_mid":    "#c9b96a",   # warm gold  (score 15–29)
         "score_low":    "#6e6e6e",   # grey        (score < 15)
-        "popup_bg":     "#1a1815",
-        "popup_border": "#3a3630",
-        "popup_text":   "#e5e2e1",
-        "popup_muted":  "#8e9192",
+        "popup_bg":     "#1e2838",
+        "popup_border": "#2d3d52",
+        "popup_text":   "#c8c3bc",
+        "popup_muted":  "#6e7a8a",
         "chip_bg":      "#1a3320",
         "chip_text":    "#7ecf9a",
         "chip_border":  "#2d6044",
@@ -135,18 +135,18 @@ st.markdown(
 # ── Parcel Scout CSS — themed via CSS custom properties ───────────────────────
 _CSS_ROOT_DARK = """
 :root {
-    --bg:             #131313;
-    --surface:        #201f1f;
-    --surface-high:   #2a2a2a;
-    --surface-low:    #1c1b1b;
-    --surface-card:   #0e0e0e;
-    --text:           #e5e2e1;
-    --text-mid:       #c4c7c7;
-    --text-muted:     #8e9192;
+    --bg:             #1e2838;
+    --surface:        #243047;
+    --surface-high:   #2d3a52;
+    --surface-low:    #192030;
+    --surface-card:   #141c2b;
+    --text:           #c8c3bc;
+    --text-mid:       #a8a49f;
+    --text-muted:     #6e7a8a;
     --accent:         #adceb9;
     --accent-text:    #183627;
     --accent-dim:     rgba(173,206,185,0.12);
-    --border:         #444748;
+    --border:         #2d3d52;
     --border-light:   rgba(255,255,255,0.06);
     --success-bg:     #1a3320;
     --success-text:   #7ecf9a;
@@ -1346,7 +1346,7 @@ def build_map(parcels: list) -> folium.Map:
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
             ).add_to(m)
             # Score label — DivIcon floating above centroid dot
-            label_bg = "rgba(19,19,19,0.88)" if THEME == "dark" else "rgba(244,239,230,0.88)"
+            label_bg = "rgba(30,40,56,0.88)" if THEME == "dark" else "rgba(244,239,230,0.88)"
             folium.Marker(
                 location=[p["lat"], p["lon"]],
                 icon=folium.DivIcon(
@@ -1405,10 +1405,10 @@ def build_map(parcels: list) -> folium.Map:
     folium.LayerControl(collapsed=False, position="topright").add_to(m)
 
     # ── Soil legend (themed) ──────────────────────────────────────────────────
-    _legend_bg     = "#1a1815" if THEME == "dark" else "#F4EFE6"
-    _legend_border = "#3a3630" if THEME == "dark" else "#D4C4A0"
-    _legend_text   = "#e5e2e1" if THEME == "dark" else "#2A2118"
-    _legend_muted  = "#8e9192" if THEME == "dark" else "#7A6A55"
+    _legend_bg     = "#1e2838" if THEME == "dark" else "#F4EFE6"
+    _legend_border = "#2d3d52" if THEME == "dark" else "#D4C4A0"
+    _legend_text   = "#c8c3bc" if THEME == "dark" else "#2A2118"
+    _legend_muted  = "#6e7a8a" if THEME == "dark" else "#7A6A55"
     legend_html = f"""
     <div style="position:fixed;bottom:30px;left:12px;z-index:9999;
                 background:{_legend_bg};border:1px solid {_legend_border};padding:10px 14px;
