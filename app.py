@@ -292,7 +292,12 @@ hr {{
     opacity: 1 !important;
 }}
 
-/* ── Expander header ── */
+/* ── Expander header (Setup & pricing, Premium Reference, etc.) ── */
+/* Hide the summary bar when the label is empty (Full signal details uses custom div) */
+[data-testid="stExpander"] summary:has(p:empty),
+[data-testid="stExpander"] summary:has(> div > p:empty) {{
+    display: none !important;
+}}
 [data-testid="stExpander"] summary p {{
     font-family: var(--sans) !important;
     font-size: 0.78rem !important;
@@ -385,37 +390,35 @@ hr {{
     color: var(--accent-text) !important;
 }}
 
-/* ── Metrics ── */
+/* ── Metrics — hardcoded hex avoids CSS-var resolution issues ── */
 [data-testid="metric-container"] {{
     background: var(--surface);
     border: 1px solid var(--border);
     padding: 1.1rem 1.3rem;
 }}
-/* Label row — target every possible element Streamlit might use */
-[data-testid="metric-container"] label,
-[data-testid="metric-container"] [data-testid="stMetricLabel"],
-[data-testid="metric-container"] [data-testid="stMetricLabel"] *,
-[data-testid="metric-container"] [data-testid="stMetricLabel"] p,
-[data-testid="metric-container"] [data-testid="stMetricLabel"] div {{
+/* Labels — every selector Streamlit might use */
+[data-testid="stMetricLabel"],
+[data-testid="stMetricLabel"] *,
+[data-testid="stMetricLabel"] p,
+[data-testid="stMetricLabel"] label,
+[data-testid="stMetricLabel"] div {{
     font-family: var(--sans) !important;
     font-size: 0.58rem !important;
     letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
-    color: var(--accent) !important;
+    color: {CLR_MAP["popup_muted"]} !important;
+    opacity: 1 !important;
 }}
-/* Value — target the div/p inside stMetricValue */
-[data-testid="metric-container"] [data-testid="stMetricValue"],
-[data-testid="metric-container"] [data-testid="stMetricValue"] *,
-[data-testid="metric-container"] [data-testid="stMetricValue"] > div,
-[data-testid="metric-container"] [data-testid="stMetricValue"] p {{
+/* Values */
+[data-testid="stMetricValue"],
+[data-testid="stMetricValue"] *,
+[data-testid="stMetricValue"] > div,
+[data-testid="stMetricValue"] p {{
     font-family: var(--serif) !important;
     font-size: 2rem !important;
     font-weight: 400 !important;
-    color: var(--text) !important;
-}}
-/* Help icon */
-[data-testid="metric-container"] [data-testid="stMetricLabel"] svg {{
-    fill: var(--text-muted) !important;
+    color: {CLR_MAP["popup_text"]} !important;
+    opacity: 1 !important;
 }}
 
 /* ── Tabs ── */
@@ -1982,7 +1985,17 @@ else:
                 f"**[View on OpenStreetMap ↗]({p.get('osm_url','')})**  ·  GPS: `{p.get('gps_coordinates','')}`"
             )
 
-            with st.expander("Full signal details"):
+            st.markdown(
+                '<div style="margin:1rem 0 0.3rem;padding:0.6rem 1rem;'
+                'background:var(--accent-dim);border:1px solid var(--accent);'
+                'border-radius:2px;cursor:pointer;">'
+                '<span style="font-family:var(--sans);font-size:0.72rem;font-weight:700;'
+                'letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);">'
+                '▼ &nbsp; Full Signal Details — click to expand'
+                '</span></div>',
+                unsafe_allow_html=True,
+            )
+            with st.expander("", expanded=False):
                 detail_rows = []
                 for sm in SIGNAL_META:
                     if sm["key"] not in active_keys:
