@@ -1062,6 +1062,38 @@ def run_full_scan(filter_state: dict, g2_state: dict, layer_state: dict) -> list
 
 # ── PDF report generator ──────────────────────────────────────────────────────
 
+def _pdf_safe(text: str) -> str:
+    """Sanitize a string for fpdf2 built-in fonts (latin-1 only).
+
+    fpdf2's built-in fonts (Helvetica, Times, Courier) are latin-1 encoded.
+    Any character outside that range raises FPDFUnicodeEncodingException.
+    This helper swaps known Unicode symbols for readable ASCII equivalents,
+    then silently drops anything else that still can't encode.
+    """
+    _SUBS = {
+        "\u2713": "OK",       # ✓ check mark
+        "\u2717": "X",        # ✗ ballot X
+        "\u26a1": "[proxy]",  # ⚡ lightning
+        "\u2022": "-",        # • bullet
+        "\u00b7": ".",        # · middle dot  (latin-1 safe but replace for consistency)
+        "\u2014": "-",        # — em dash
+        "\u2013": "-",        # – en dash
+        "\u2018": "'",        # ' left single quote
+        "\u2019": "'",        # ' right single quote
+        "\u201c": '"',        # " left double quote
+        "\u201d": '"',        # " right double quote
+        "\u2026": "...",      # … ellipsis
+        "\u2192": "->",       # → right arrow
+        "\u2190": "<-",       # ← left arrow
+        "\u2197": "->",       # ↗ north-east arrow
+        "\u00b0": " deg",     # ° degree sign
+        "\u20ac": "EUR",      # € euro
+    }
+    for ch, sub in _SUBS.items():
+        text = text.replace(ch, sub)
+    return text.encode("latin-1", errors="ignore").decode("latin-1")
+
+
 def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     """
     Generate a single-parcel Intelligence Report PDF using fpdf2.
@@ -1116,7 +1148,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(244, 239, 230)       # #F4EFE6
     pdf.set_xy(10, 5)
-    pdf.cell(0, 8, "Giovanni Bonelli Group  ·  Parcel Scout  ·  Tuscany Acquisition Intelligence")
+    pdf.cell(0, 8, _pdf_safe("Giovanni Bonelli Group  |  Parcel Scout  |  Tuscany Acquisition Intelligence"))
 
     # ── Title block ───────────────────────────────────────────────────────────
     pdf.set_text_color(42, 33, 24)
@@ -1128,7 +1160,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     pdf.set_xy(10, 30)
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_text_color(42, 33, 24)
-    pdf.cell(0, 10, name, ln=True)
+    pdf.cell(0, 10, _pdf_safe(name), ln=True)
 
     pdf.set_xy(10, 41)
     score_clr = (74, 103, 65) if score >= 30 else (139, 105, 20) if score >= 15 else (122, 106, 85)
@@ -1136,7 +1168,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     pdf.set_text_color(*score_clr)
     fired_n = p.get("signals_fired", 0)
     total_n = p.get("signals_total", len(active_keys))
-    pdf.cell(0, 7, f"Opportunity Score: {score:.0f}%  ({fired_n} of {total_n} signals fired)", ln=True)
+    pdf.cell(0, 7, _pdf_safe(f"Opportunity Score: {score:.0f}%  ({fired_n} of {total_n} signals fired)"), ln=True)
 
     # ── Divider ───────────────────────────────────────────────────────────────
     pdf.set_draw_color(212, 196, 160)       # #D4C4A0
@@ -1162,9 +1194,9 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     for label, value in metrics:
         pdf.set_x(10)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.cell(45, 7, label + ":", border=0)
+        pdf.cell(45, 7, _pdf_safe(label + ":"), border=0)
         pdf.set_font("Helvetica", "", 9)
-        pdf.cell(0, 7, value, ln=True)
+        pdf.cell(0, 7, _pdf_safe(value), ln=True)
 
     # ── Divider ───────────────────────────────────────────────────────────────
     y = pdf.get_y() + 3
@@ -1184,10 +1216,10 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
                 label_txt += " (proxy)"
             pdf.set_font("Helvetica", "B", 9)
             pdf.set_text_color(74, 103, 65)
-            pdf.cell(55, 6, f"✓  {label_txt}", border=0)
+            pdf.cell(55, 6, _pdf_safe(f"[OK]  {label_txt}"), border=0)
             pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(42, 33, 24)
-            pdf.multi_cell(0, 6, row["detail"][:100])
+            pdf.multi_cell(0, 6, _pdf_safe(row["detail"][:100]))
     else:
         pdf.set_font("Helvetica", "I", 9)
         pdf.set_text_color(122, 106, 85)
@@ -1204,7 +1236,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
         pdf.cell(30, 5, "OpenStreetMap URL:")
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(42, 33, 24)
-        pdf.cell(0, 5, osm_url[:90], ln=True)
+        pdf.cell(0, 5, _pdf_safe(osm_url[:90]), ln=True)
 
     # ── Page 2: full signal detail table ─────────────────────────────────────
     pdf.add_page()
@@ -1213,7 +1245,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(244, 239, 230)
     pdf.set_xy(10, 5)
-    pdf.cell(0, 8, f"Intelligence Report — Full Signal Detail  ·  {name[:50]}")
+    pdf.cell(0, 8, _pdf_safe(f"Intelligence Report | Full Signal Detail | {name[:50]}"))
 
     pdf.set_text_color(42, 33, 24)
     pdf.set_xy(10, 22)
@@ -1240,21 +1272,21 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
 
         pdf.set_x(10)
         pdf.set_font("Helvetica", "B" if row["fired"] else "", 8)
-        pdf.cell(col_widths[0], 6, row["label"][:28], fill=True)
+        pdf.cell(col_widths[0], 6, _pdf_safe(row["label"][:28]), fill=True)
 
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color((74, 103, 65) if row["fired"] else (122, 106, 85))
-        pdf.cell(col_widths[1], 6, "✓" if row["fired"] else "—", fill=True)
+        pdf.cell(col_widths[1], 6, "OK" if row["fired"] else "-", fill=True)
 
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(42, 33, 24)
-        quality = "⚡ proxy" if row["proxy"] else "authoritative"
+        quality = "[proxy]" if row["proxy"] else "authoritative"
         pdf.cell(col_widths[2], 6, quality, fill=True)
 
         # Detail may be long — use multi_cell to wrap
         x_before = pdf.get_x()
         pdf.set_font("Helvetica", "", 7)
-        pdf.multi_cell(col_widths[3], 6, row["detail"][:110] or "—", fill=True)
+        pdf.multi_cell(col_widths[3], 6, _pdf_safe(row["detail"][:110] or "-"), fill=True)
         fill = not fill
 
     # ── Footer ────────────────────────────────────────────────────────────────
@@ -1262,7 +1294,7 @@ def generate_pdf(p: dict, active_keys: list) -> bytes | None:
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(122, 106, 85)
     pdf.cell(0, 5,
-             f"Generated {gen_date}  ·  Giovanni Bonelli Group  ·  Parcel Scout  ·  {region}",
+             _pdf_safe(f"Generated {gen_date}  |  Giovanni Bonelli Group  |  Parcel Scout  |  {region}"),
              align="C")
 
     return bytes(pdf.output())
