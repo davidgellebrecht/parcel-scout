@@ -391,18 +391,31 @@ hr {{
     border: 1px solid var(--border);
     padding: 1.1rem 1.3rem;
 }}
-[data-testid="metric-container"] label {{
+/* Label row — target every possible element Streamlit might use */
+[data-testid="metric-container"] label,
+[data-testid="metric-container"] [data-testid="stMetricLabel"],
+[data-testid="metric-container"] [data-testid="stMetricLabel"] *,
+[data-testid="metric-container"] [data-testid="stMetricLabel"] p,
+[data-testid="metric-container"] [data-testid="stMetricLabel"] div {{
     font-family: var(--sans) !important;
     font-size: 0.58rem !important;
     letter-spacing: 0.18em !important;
     text-transform: uppercase !important;
     color: var(--accent) !important;
 }}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+/* Value — target the div/p inside stMetricValue */
+[data-testid="metric-container"] [data-testid="stMetricValue"],
+[data-testid="metric-container"] [data-testid="stMetricValue"] *,
+[data-testid="metric-container"] [data-testid="stMetricValue"] > div,
+[data-testid="metric-container"] [data-testid="stMetricValue"] p {{
     font-family: var(--serif) !important;
     font-size: 2rem !important;
     font-weight: 400 !important;
     color: var(--text) !important;
+}}
+/* Help icon */
+[data-testid="metric-container"] [data-testid="stMetricLabel"] svg {{
+    fill: var(--text-muted) !important;
 }}
 
 /* ── Tabs ── */
