@@ -26,49 +26,59 @@ import config
 
 # ─── Overpass API ─────────────────────────────────────────────────────────────
 
-def _overpass(query: str, retries: int = 3, backoff: int = 8) -> dict:
+_last_overpass_call: float = 0.0   # module-level timestamp for rate-limit spacing
+
+
+def _overpass(query: str, retries: int = 2, backoff: int = 6) -> dict:
     """POST an Overpass QL query and return the parsed JSON response.
 
-    Tries each URL in config.OVERPASS_FALLBACK_URLS in turn. For each URL,
-    retries up to `retries` times on timeouts or 5xx errors. If every URL
-    is exhausted, returns an empty result set instead of crashing the app.
+    Tries each URL in config.OVERPASS_FALLBACK_URLS in turn.
+    - 429 rate-limit  → skip immediately to next mirror (never wait on a throttle)
+    - 5xx / timeout   → retry up to `retries` times with `backoff` seconds, then next mirror
+    - other HTTP err  → skip immediately to next mirror
+    Returns an empty result set if all mirrors fail.
     """
-    http_timeout = config.OVERPASS_TIMEOUT + 10  # extra buffer for HTTP overhead
+    global _last_overpass_call
+    http_timeout = config.OVERPASS_TIMEOUT + 10
     mirror_count = len(config.OVERPASS_FALLBACK_URLS)
 
+    # Enforce minimum gap between queries to avoid triggering rate limits
+    delay = getattr(config, "OVERPASS_QUERY_DELAY", 2)
+    gap = time.time() - _last_overpass_call
+    if gap < delay:
+        time.sleep(delay - gap)
+
     for mirror_idx, url in enumerate(config.OVERPASS_FALLBACK_URLS, 1):
-        short = url.split("/")[2]   # e.g. "overpass-api.de"
         for attempt in range(1, retries + 1):
             try:
                 resp = requests.post(url, data={"data": query}, timeout=http_timeout)
                 resp.raise_for_status()
+                _last_overpass_call = time.time()
                 return resp.json()
             except requests.exceptions.Timeout:
-                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} timed out (attempt {attempt}/{retries}) — retrying in {backoff}s")
+                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} timeout (attempt {attempt}/{retries})")
                 if attempt < retries:
                     time.sleep(backoff)
             except requests.exceptions.HTTPError:
                 code = resp.status_code
                 if code == 429:
-                    wait = backoff * 2
-                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} rate-limited (attempt {attempt}/{retries}) — waiting {wait}s")
-                    if attempt < retries:
-                        time.sleep(wait)
+                    # Rate-limited — this mirror is throttling us; skip immediately
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} rate-limited — skipping")
+                    break
                 elif code >= 500:
-                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} (attempt {attempt}/{retries}) — retrying in {backoff}s")
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} (attempt {attempt}/{retries})")
                     if attempt < retries:
                         time.sleep(backoff)
+                    # else fall through to next mirror
                 else:
-                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} — switching mirror")
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} — skipping")
                     break
             except requests.exceptions.RequestException as exc:
-                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} error (attempt {attempt}/{retries}) — {exc}")
+                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} error: {exc}")
                 if attempt < retries:
                     time.sleep(backoff)
-        if mirror_idx < mirror_count:
-            print(f"  [Overpass] switching to mirror {mirror_idx + 1}/{mirror_count}...")
 
-    print("  [Overpass] all mirrors failed — returning empty result set")
+    print("  [Overpass] all mirrors exhausted — returning empty result set")
     return {"elements": []}
 
 
