@@ -530,27 +530,30 @@ hr {{
 .stDataFrame {{ border: 1px solid var(--border) !important; }}
 
 /* ── Status widget (scan progress) ── */
-[data-testid="stStatusWidget"] {{
-    background-color: var(--surface-low) !important;
+/* Target every selector Streamlit may use for st.status() */
+[data-testid="stStatusWidget"],
+[data-testid="stStatusContainer"],
+[data-testid="stExpander"],
+div[class*="StatusWidget"],
+div[class*="stStatus"] {{
+    background: var(--surface-low) !important;
+    border: 1px solid var(--border) !important;
 }}
-[data-testid="stStatusWidget"] p,
-[data-testid="stStatusWidget"] span,
-[data-testid="stStatusWidget"] div {{
+[data-testid="stStatusWidget"] *,
+[data-testid="stStatusContainer"] *,
+[data-testid="stExpander"] p,
+[data-testid="stExpander"] span {{
     color: var(--text) !important;
     font-family: var(--sans) !important;
     font-size: 0.78rem !important;
     opacity: 1 !important;
 }}
-/* Status expanded body */
-[data-testid="stStatusWidget"] > div:last-child {{
+/* Expanded body / log area */
+[data-testid="stStatusWidget"] > div:last-child,
+[data-testid="stStatusContainer"] > div:last-child {{
     background-color: var(--surface) !important;
-    border: 1px solid var(--border) !important;
+    border-top: 1px solid var(--border) !important;
     padding: 0.8rem 1rem !important;
-}}
-[data-testid="stStatusWidget"] > div:last-child p,
-[data-testid="stStatusWidget"] > div:last-child span {{
-    color: var(--text-mid) !important;
-    font-size: 0.75rem !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -1781,10 +1784,17 @@ if run_btn or _demo_trigger:
 
         def ui_print(*args, **kwargs):
             msg = " ".join(str(a) for a in args)
-            st.session_state.scan_log.append(msg)
-            log_placeholder.markdown(
-                "\n".join(f"› {line}" for line in st.session_state.scan_log[-8:])
+            # Show meaningful progress in the UI; suppress verbose API warnings
+            # (they still reach the terminal via original_print for debugging)
+            _is_noise = (
+                msg.startswith("WARNING:")
+                or msg.startswith("  Running layers...")  # progress counter — too chatty
             )
+            if not _is_noise:
+                st.session_state.scan_log.append(msg)
+                log_placeholder.markdown(
+                    "\n".join(f"› {line}" for line in st.session_state.scan_log[-12:])
+                )
             original_print(*args, **kwargs)
 
         builtins.print = ui_print
