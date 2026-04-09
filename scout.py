@@ -26,7 +26,7 @@ import config
 
 # ─── Overpass API ─────────────────────────────────────────────────────────────
 
-def _overpass(query: str, retries: int = 3, backoff: int = 15) -> dict:
+def _overpass(query: str, retries: int = 3, backoff: int = 8) -> dict:
     """POST an Overpass QL query and return the parsed JSON response.
 
     Tries each URL in config.OVERPASS_FALLBACK_URLS in turn. For each URL,
@@ -34,38 +34,41 @@ def _overpass(query: str, retries: int = 3, backoff: int = 15) -> dict:
     is exhausted, returns an empty result set instead of crashing the app.
     """
     http_timeout = config.OVERPASS_TIMEOUT + 10  # extra buffer for HTTP overhead
+    mirror_count = len(config.OVERPASS_FALLBACK_URLS)
 
-    for url in config.OVERPASS_FALLBACK_URLS:
+    for mirror_idx, url in enumerate(config.OVERPASS_FALLBACK_URLS, 1):
+        short = url.split("/")[2]   # e.g. "overpass-api.de"
         for attempt in range(1, retries + 1):
             try:
                 resp = requests.post(url, data={"data": query}, timeout=http_timeout)
                 resp.raise_for_status()
                 return resp.json()
             except requests.exceptions.Timeout:
-                print(f"  WARNING: Overpass timed out at {url} (attempt {attempt}/{retries}).")
+                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} timed out (attempt {attempt}/{retries}) — retrying in {backoff}s")
                 if attempt < retries:
                     time.sleep(backoff)
-            except requests.exceptions.HTTPError as exc:
+            except requests.exceptions.HTTPError:
                 code = resp.status_code
                 if code == 429:
                     wait = backoff * 2
-                    print(f"  WARNING: Overpass rate-limited at {url} (attempt {attempt}/{retries}) — waiting {wait}s...")
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} rate-limited (attempt {attempt}/{retries}) — waiting {wait}s")
                     if attempt < retries:
                         time.sleep(wait)
                 elif code >= 500:
-                    print(f"  WARNING: Overpass {code} at {url} (attempt {attempt}/{retries}) — retrying in {backoff}s...")
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} (attempt {attempt}/{retries}) — retrying in {backoff}s")
                     if attempt < retries:
                         time.sleep(backoff)
                 else:
-                    print(f"  WARNING: Overpass HTTP {code} at {url} — skipping to next mirror.")
-                    break  # non-retriable error; try next URL immediately
+                    print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} HTTP {code} — switching mirror")
+                    break
             except requests.exceptions.RequestException as exc:
-                print(f"  WARNING: Overpass request failed at {url} (attempt {attempt}/{retries}) — {exc}")
+                print(f"  [Overpass] mirror {mirror_idx}/{mirror_count} error (attempt {attempt}/{retries}) — {exc}")
                 if attempt < retries:
                     time.sleep(backoff)
-        print(f"  WARNING: Exhausted all attempts at {url} — trying next mirror...")
+        if mirror_idx < mirror_count:
+            print(f"  [Overpass] switching to mirror {mirror_idx + 1}/{mirror_count}...")
 
-    print("  ERROR: All Overpass mirrors failed. Returning empty result set — parcel data may be incomplete.")
+    print("  [Overpass] all mirrors failed — returning empty result set")
     return {"elements": []}
 
 

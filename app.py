@@ -1784,8 +1784,9 @@ if run_btn or _demo_trigger:
             # Show meaningful progress in the UI; suppress verbose API warnings
             # (they still reach the terminal via original_print for debugging)
             _is_noise = (
-                msg.startswith("WARNING:")
-                or msg.startswith("  Running layers...")  # progress counter — too chatty
+                "WARNING:" in msg          # Overpass retry warnings (old format)
+                or "[Overpass]" in msg     # Overpass retry warnings (new format)
+                or "\r" in msg             # carriage-return progress counters
             )
             if not _is_noise:
                 st.session_state.scan_log.append(msg)
