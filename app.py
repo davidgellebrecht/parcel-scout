@@ -530,19 +530,16 @@ hr {{
 .stDataFrame {{ border: 1px solid var(--border) !important; }}
 
 /* ── Status widget (scan progress) ── */
-/* Target every selector Streamlit may use for st.status() */
+/* NOTE: do NOT include stExpander here — expanders have their own rules above */
 [data-testid="stStatusWidget"],
 [data-testid="stStatusContainer"],
-[data-testid="stExpander"],
 div[class*="StatusWidget"],
 div[class*="stStatus"] {{
     background: var(--surface-low) !important;
     border: 1px solid var(--border) !important;
 }}
 [data-testid="stStatusWidget"] *,
-[data-testid="stStatusContainer"] *,
-[data-testid="stExpander"] p,
-[data-testid="stExpander"] span {{
+[data-testid="stStatusContainer"] * {{
     color: var(--text) !important;
     font-family: var(--sans) !important;
     font-size: 0.78rem !important;
