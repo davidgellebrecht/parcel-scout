@@ -293,11 +293,6 @@ hr {{
 }}
 
 /* ── Expander header (Setup & pricing, Premium Reference, etc.) ── */
-/* Hide the summary bar when the label is empty (Full signal details uses custom div) */
-[data-testid="stExpander"] summary:has(p:empty),
-[data-testid="stExpander"] summary:has(> div > p:empty) {{
-    display: none !important;
-}}
 [data-testid="stExpander"] summary p {{
     font-family: var(--sans) !important;
     font-size: 0.78rem !important;
@@ -310,6 +305,26 @@ hr {{
 [data-testid="stExpander"] summary svg {{
     color: var(--accent) !important;
     fill: var(--accent) !important;
+}}
+
+/* ── All expander summaries — clearly styled as clickable ── */
+[data-testid="stExpander"] summary {{
+    padding: 0.55rem 0.9rem !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 2px !important;
+    background: var(--surface-high) !important;
+    cursor: pointer !important;
+    transition: background 0.15s, border-color 0.15s !important;
+    margin-top: 0.4rem !important;
+}}
+[data-testid="stExpander"] summary:hover {{
+    background: var(--accent-dim) !important;
+    border-color: var(--accent) !important;
+}}
+[data-testid="stExpander"] summary p {{
+    color: var(--accent) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
 }}
 
 /* ── Expander body (open state) ── */
@@ -1985,17 +2000,7 @@ else:
                 f"**[View on OpenStreetMap ↗]({p.get('osm_url','')})**  ·  GPS: `{p.get('gps_coordinates','')}`"
             )
 
-            st.markdown(
-                '<div style="margin:1rem 0 0.3rem;padding:0.6rem 1rem;'
-                'background:var(--accent-dim);border:1px solid var(--accent);'
-                'border-radius:2px;cursor:pointer;">'
-                '<span style="font-family:var(--sans);font-size:0.72rem;font-weight:700;'
-                'letter-spacing:0.12em;text-transform:uppercase;color:var(--accent);">'
-                '▼ &nbsp; Full Signal Details — click to expand'
-                '</span></div>',
-                unsafe_allow_html=True,
-            )
-            with st.expander("", expanded=False):
+            with st.expander("▼  Full Signal Details — click to expand"):
                 detail_rows = []
                 for sm in SIGNAL_META:
                     if sm["key"] not in active_keys:
