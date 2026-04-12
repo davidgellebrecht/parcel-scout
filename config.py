@@ -95,6 +95,14 @@ OVERPASS_FALLBACK_URLS = [
 OVERPASS_TIMEOUT = 60    # seconds per attempt; 2 retries × 4 URLs before giving up
 OVERPASS_QUERY_DELAY = 2  # seconds between consecutive Overpass queries (rate-limit buffer)
 
+# ── Cadastral Cross-Validation (Agenzia delle Entrate WFS) ───────────────
+# Queries the official Italian land registry to cross-check OSM parcel
+# boundaries against government records — like getting a second opinion.
+# Free, no API key required (CC BY 4.0 licence).
+CADASTRAL_VALIDATION    = True    # Query AdE WFS for official parcel data
+CADASTRAL_BUFFER_DEG    = 0.001   # ~100 m buffer around centroid for BBOX query
+CADASTRAL_REQUEST_DELAY = 1.0     # seconds between AdE WFS requests (be respectful)
+
 # ─── 9-Layer Acquisition Engine ───────────────────────────────────────────────
 # Toggle each layer True (active) or False (skip).
 # Layers marked PAID FEATURE require a commercial API subscription to return real data.

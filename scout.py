@@ -21,6 +21,7 @@ from datetime import datetime, date
 
 import requests
 
+import cadastral
 import config
 
 
@@ -851,7 +852,7 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
 
         owner = fetch_owner_data(lat, lon)
 
-        results.append({
+        parcel = {
             # ── Identity ──────────────────────────────────────────────────────
             "osm_type":             el["type"],
             "osm_id":               el["id"],
@@ -889,7 +890,23 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
             "parcel_code":          owner["parcel_code"],
             "municipality":         owner["municipality"],
             "encumbrances":         owner["encumbrances"],
-        })
+        }
+
+        # ── Cadastral cross-validation ───────────────────────────────────
+        # Query the official Italian Catasto to verify boundaries, area, and
+        # land use against government records (same idea as using county
+        # ArcGIS services in the Turf Rebate project).
+        if config.CADASTRAL_VALIDATION:
+            cadastral.enrich_parcel(parcel, nodes)
+
+        results.append(parcel)
+
+    # ── Deduplication ────────────────────────────────────────────────────
+    # OSM often maps the same real-world parcel as multiple features (e.g.
+    # a vineyard 'way' inside a larger farmland 'relation'). Deduplicate
+    # using cadastral IDs (definitive) and centroid proximity (heuristic).
+    results, dupes_removed = cadastral.deduplicate_parcels(results)
+    skipped["duplicates"] = dupes_removed
 
     return results, skipped
 
@@ -984,7 +1001,8 @@ def main():
     print(f"  Skipped → no geometry: {skipped['no_geometry']}  |  "
           f"too small: {skipped['area']}  |  "
           f"too far from airport: {skipped['airport']}  |  "
-          f"no historic nearby: {skipped['historic']}")
+          f"no historic nearby: {skipped['historic']}  |  "
+          f"duplicates merged: {skipped.get('duplicates', 0)}")
 
     print(f"\n{'═' * 62}")
     print(f"  {len(parcels)} parcel(s) matched all active filters")

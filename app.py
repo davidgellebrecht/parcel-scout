@@ -1057,7 +1057,8 @@ def run_full_scan(filter_state: dict, g2_state: dict, layer_state: dict) -> list
         f"no geometry: {skipped['no_geometry']}  |  "
         f"too small: {skipped['area']}  |  "
         f"too far: {skipped['airport']}  |  "
-        f"no historic: {skipped['historic']}"
+        f"no historic: {skipped['historic']}  |  "
+        f"duplicates merged: {skipped.get('duplicates', 0)}"
     )
 
     if not parcels:
@@ -1367,11 +1368,54 @@ def build_map(parcels: list) -> folium.Map:
             for s in signals
         ) or f"<em style='color:{_pm}'>no signals</em>"
 
+        # ── Data quality badge ────────────────────────────────────────────
+        q_score = p.get("quality_score", 0)
+        q_label = p.get("quality_label", "")
+        q_color = ("#4CAF50" if q_score >= 80 else
+                   "#FFC107" if q_score >= 50 else
+                   "#FF9800" if q_score >= 20 else "#9E9E9E")
+        q_badge = (
+            f'<span style="background:{q_color};color:#fff;padding:1px 6px;'
+            f'font-size:9px;font-weight:700;">'
+            f'DATA {q_score}/100 — {q_label}</span>'
+        ) if q_label else ""
+
+        cad_id   = p.get("cadastral_id", "")
+        cad_line = (
+            f'<div style="font-size:10px;color:{_pm};margin-top:4px;">'
+            f'Catasto: {cad_id} &nbsp;·&nbsp; '
+            f'Official area: {p.get("cadastral_area_sqm", "N/A")} m²'
+            f'</div>'
+        ) if cad_id else ""
+
+        disc_pct = p.get("area_discrepancy_pct")
+        disc_line = ""
+        if disc_pct is not None:
+            disc_color = "#4CAF50" if disc_pct < 5 else "#FFC107" if disc_pct < 15 else "#FF5722"
+            disc_line = (
+                f'<div style="font-size:10px;margin-top:2px;">'
+                f'Area discrepancy: <span style="color:{disc_color};font-weight:600;">'
+                f'{disc_pct:.1f}%</span></div>'
+            )
+
+        corine_line = ""
+        corine_label = p.get("corine_label", "")
+        corine_match = p.get("corine_match", "")
+        if corine_label:
+            cm_color = "#4CAF50" if corine_match == "confirmed" else "#FF9800" if corine_match == "mismatch" else _pm
+            corine_line = (
+                f'<div style="font-size:10px;color:{_pm};margin-top:2px;">'
+                f'CORINE: {corine_label} '
+                f'<span style="color:{cm_color};font-weight:600;">({corine_match})</span>'
+                f'</div>'
+            )
+
         popup_html = f"""
         <div style="font-family:'Manrope',system-ui,sans-serif;min-width:230px;
                     color:{_pt};background:{_pb};padding:14px;border:1px solid {_pb2};">
           <div style="font-size:22px;font-weight:700;color:{color};">{score:.1f}
             <span style="font-size:12px;color:{_pm};">/100</span>
+            &nbsp;{q_badge}
           </div>
           <div style="font-size:12px;font-weight:500;margin:4px 0 8px;">{name[:50]}</div>
           <div style="font-size:10px;color:{_pm};margin-bottom:6px;">
@@ -1379,6 +1423,7 @@ def build_map(parcels: list) -> folium.Map:
             {p.get('parcel_acres',0):.0f} acres &nbsp;·&nbsp;
             {p.get('dist_airport_km',0):.0f} km to {p.get('airport_iata','')}
           </div>
+          {cad_line}{disc_line}{corine_line}
           <div style="margin-top:8px;">{sig_html}</div>
           <div style="margin-top:10px;font-size:10px;">
             <a href="{p.get('osm_url','')}" target="_blank"
@@ -1398,6 +1443,17 @@ def build_map(parcels: list) -> folium.Map:
                 popup=folium.Popup(popup_html, max_width=280),
                 tooltip=f"{score:.1f}/100 — {name[:35]}",
             ).add_to(m)
+            # ── Cadastral overlay: official boundary as dashed outline ─────
+            cad_coords = p.get("cadastral_polygon_coords", [])
+            if cad_coords:
+                folium.Polygon(
+                    locations=cad_coords,
+                    color="#FFD700",      # gold for official boundary
+                    weight=2,
+                    dash_array="6 4",     # dashed to distinguish from OSM solid
+                    fill=False,
+                    tooltip=f"Catasto: {p.get('cadastral_id', '')}",
+                ).add_to(m)
             # Centroid dot — visible at low zoom
             folium.CircleMarker(
                 location=[p["lat"], p["lon"]],
@@ -1503,10 +1559,13 @@ def build_rankings_df(parcels: list) -> pd.DataFrame:
         rows.append({
             "Rank":       rank,
             "Score":      p.get("opportunity_score", 0),
+            "Quality":    f"{p.get('quality_score', 0)}/100",
             "Signals":    f"{p.get('signals_fired',0)}/{len(ALL_SIGNAL_KEYS)}",
             "Fired":      " · ".join(fired) if fired else "—",
             "Crop":       p.get("primary_crop_type", "").title(),
             "Acres":      int(round(p.get("parcel_acres", 0))),
+            "Catasto":    p.get("cadastral_id", "") or "—",
+            "Area Δ":     f"{p.get('area_discrepancy_pct', 0):.0f}%" if p.get("area_discrepancy_pct") is not None else "—",
             "Airport":    f"{p.get('dist_airport_km',0):.0f} km ({p.get('airport_iata','')})",
             "Heritage":   f"{p.get('closest_historic_tag','').title()} ({p.get('heritage_confidence','')})",
             "Name / GPS": p.get("name") or p.get("gps_coordinates", ""),
@@ -1966,6 +2025,31 @@ else:
                 help="Historic structure type physically inside the parcel boundary.")
             dc3.metric("Confidence", p.get("heritage_confidence", "").title() or "N/A",
                 help="High = named type · Medium = type uncertain · Low = 'historic=yes' only")
+
+            # ── Cadastral cross-validation metrics ───────────────────────
+            cad_id = p.get("cadastral_id", "")
+            if cad_id or p.get("quality_score"):
+                st.markdown("---")
+                st.markdown("**Data Quality (Catasto cross-validation)**")
+                qc1, qc2, qc3 = st.columns(3)
+                qc1.metric("Quality Score", f"{p.get('quality_score', 0)}/100",
+                    help=f"Data confidence: {p.get('quality_label', 'N/A')}. "
+                         f"Cadastral: {p.get('quality_cadastral_pts', 0)}/30 · "
+                         f"Area: {p.get('quality_area_pts', 0)}/20 · "
+                         f"CORINE: {p.get('quality_corine_pts', 0)}/15 · "
+                         f"OSM: {p.get('quality_osm_pts', 0)}/15 · "
+                         f"Geometry: {p.get('quality_geom_pts', 0)}/20")
+                qc1.metric("Catasto Ref", cad_id or "—",
+                    help="Official foglio/particella from the Italian land registry (Agenzia delle Entrate).")
+                qc2.metric("Official Area", f"{p.get('cadastral_area_sqm', '—')} m²" if p.get("cadastral_area_sqm") else "—",
+                    help="Area registered in the official Catasto.")
+                disc = p.get("area_discrepancy_pct")
+                qc2.metric("Area Discrepancy", f"{disc:.1f}%" if disc is not None else "—",
+                    help="Difference between OSM polygon area and official Catasto area. <5% is excellent.")
+                qc3.metric("CORINE Land Use", p.get("corine_label", "") or "—",
+                    help="EU satellite-derived land classification (100m resolution).")
+                qc3.metric("CORINE Match", (p.get("corine_match", "") or "—").title(),
+                    help="Does CORINE agree with the OSM crop tag? 'Confirmed' = high confidence.")
 
             # Build a quick label→proxy lookup for badge rendering
             _proxy_labels = {sm["label"] for sm in SIGNAL_META if sm.get("proxy")}
