@@ -1,0 +1,45 @@
+# Files excluded when Docker copies the project into the image.
+# Keeps the image slim and avoids leaking local state or secrets.
+
+# Local DB / historical exports — Fly has its own persistent volume
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+results_*.csv
+results_*.json
+ranked_*.csv
+ranked_*.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Local dev env
+.venv/
+venv/
+env/
+
+# macOS metadata
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Secrets — Streamlit's local secrets file MUST NOT be baked into the image.
+# On Fly we use `flyctl secrets set` instead.
+.streamlit/secrets.toml
+
+# Claude / Docs that don't belong in the runtime image
+.claude/
+CLAUDE.md
+DEPLOY.md

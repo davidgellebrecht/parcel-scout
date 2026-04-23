@@ -28,8 +28,16 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 # ── Paths ────────────────────────────────────────────────────────────────────
+# Data directory precedence:
+#   1. PARCEL_SCOUT_DATA_DIR env var — set by fly.toml to /app/data (persistent volume)
+#   2. Default ./data/ next to the code — used for local development
+# Setting the env var is how we keep production data safe on Fly while letting
+# local dev work out of the box with no config.
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-_DATA_DIR    = os.path.join(_PROJECT_DIR, "data")
+_DATA_DIR    = os.environ.get(
+    "PARCEL_SCOUT_DATA_DIR",
+    os.path.join(_PROJECT_DIR, "data"),
+)
 DB_PATH      = os.path.join(_DATA_DIR, "parcel_scout.sqlite")
 
 os.makedirs(_DATA_DIR, exist_ok=True)

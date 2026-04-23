@@ -1,0 +1,51 @@
+# fly.toml — Fly.io deployment config for Parcel Scout (Giovanni Bonelli Group)
+#
+# Think of this as the property settings for the virtual machine that runs
+# the app: its name, which data center, how big the persistent disk is,
+# and how Fly knows the app is healthy.
+
+app = 'giovanni-bonelli-parcel-scout'
+primary_region = 'cdg'   # Paris — closest to EU APIs (OSM, AdE, CORINE, EFFIS)
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  # Tell storage.py to write the SQLite DB onto the persistent volume
+  # (mounted below at /app/data) instead of the container's ephemeral disk.
+  PARCEL_SCOUT_DATA_DIR = '/app/data'
+
+[[mounts]]
+  # A persistent volume — survives restarts, deploys, and VM replacements.
+  # 1GB is plenty: the DB holds parcel dicts (a few KB each) + audit lines
+  # + API-call receipts. At 500 parcels × 50 audit rows × ~300 bytes the
+  # whole thing sits well under 20MB. Extend with `flyctl volumes extend`
+  # if ever needed.
+  source = 'parcel_scout_data'
+  destination = '/app/data'
+  initial_size = '1'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Auto-stop when idle → pay $0 for the VM when nobody's using it.
+  # Fly spins it back up on the next request (cold start ~5–8 seconds).
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  # Streamlit exposes a lightweight health endpoint at /_stcore/health
+  # that returns "ok" without rendering the full app — perfect for Fly's
+  # HTTP check. Grace period 60s because first-run Streamlit compile is slow.
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '60s'
+    method = 'GET'
+    path = '/_stcore/health'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
