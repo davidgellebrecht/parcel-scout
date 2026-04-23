@@ -56,6 +56,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 
 # Radius within which we look for OSM renovation/neglect signals (degrees ≈ metres)
 _OSM_BUFFER_DEG = 0.003   # ≈ 300 m at Tuscan latitudes
@@ -101,7 +102,7 @@ out tags center;
 """
     for url in config.OVERPASS_FALLBACK_URLS:
         try:
-            resp = requests.post(url, data={"data": query}, timeout=25)
+            resp = tracked_request("overpass", "post", url, data={"data": query}, timeout=25)
             if resp.status_code != 200:
                 continue
 

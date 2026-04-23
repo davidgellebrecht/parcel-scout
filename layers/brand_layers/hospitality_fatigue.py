@@ -50,6 +50,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 
 _TRIPADVISOR_NEARBY = "https://api.content.tripadvisor.com/api/v1/location/nearby_search"
 _TRIPADVISOR_DETAIL = "https://api.content.tripadvisor.com/api/v1/location/{id}/details"
@@ -84,7 +85,8 @@ class HospitalityFatigueLayer(BaseLayer):
 
         try:
             # ── Step 1: Find nearby hospitality venues ────────────────────────
-            resp = requests.get(
+            resp = tracked_request(
+                "tripadvisor", "get",
                 _TRIPADVISOR_NEARBY,
                 params={
                     "key":      api_key,
@@ -106,7 +108,8 @@ class HospitalityFatigueLayer(BaseLayer):
             # ── Step 2: Fetch rating details for closest venue ────────────────
             venue     = venues[0]
             venue_id  = venue.get("location_id")
-            detail_r  = requests.get(
+            detail_r  = tracked_request(
+                "tripadvisor", "get",
                 _TRIPADVISOR_DETAIL.format(id=venue_id),
                 params={"key": api_key, "language": "it"},
                 timeout=15,
@@ -120,7 +123,8 @@ class HospitalityFatigueLayer(BaseLayer):
             name        = detail_data.get("name", "unknown venue")
 
             # ── Step 3: Fetch recent reviews for velocity calculation ──────────
-            reviews_r = requests.get(
+            reviews_r = tracked_request(
+                "tripadvisor", "get",
                 _TRIPADVISOR_REVIEWS.format(id=venue_id),
                 params={"key": api_key, "language": "it", "limit": 10},
                 timeout=15,

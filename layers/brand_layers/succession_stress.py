@@ -95,7 +95,9 @@ def _check_wayback(domain: str) -> dict:
     Returns: {last_snapshot, snapshot_count, days_since_crawl, stale}
     """
     try:
-        resp = requests.get(
+        from cost_tracker import tracked_request
+        resp = tracked_request(
+            "wayback", "get",
             _WAYBACK_CDX,
             params={
                 "url":      domain,
@@ -145,7 +147,9 @@ def _check_opencorporates(name: str) -> dict:
         return {"found": False}
 
     try:
-        resp = requests.get(
+        from cost_tracker import tracked_request
+        resp = tracked_request(
+            "opencorp", "get",
             f"{_OPENCORPORATES_BASE}/companies/search",
             params={
                 "q":               search_name,
@@ -183,7 +187,9 @@ def _check_opencorporates(name: str) -> dict:
         co_number      = co.get("company_number", "")
         if co_number:
             try:
-                off_resp = requests.get(
+                from cost_tracker import tracked_request
+                off_resp = tracked_request(
+                    "opencorp", "get",
                     f"{_OPENCORPORATES_BASE}/companies/it/{co_number}/officers",
                     params={"per_page": 50},
                     timeout=10,

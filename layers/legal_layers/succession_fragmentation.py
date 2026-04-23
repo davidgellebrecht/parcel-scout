@@ -119,7 +119,9 @@ class SuccessionFragmentationLayer(BaseLayer):
             headers = {"Authorization": api_key, "User-Agent": "ParcelScout/1.0"}
             # Re-query to get full proprietari data (scout.py only returns first owner)
             foglio, particella = parcel_code.split("/") if "/" in parcel_code else ("", "")
-            resp = requests.post(
+            from cost_tracker import tracked_request
+            resp = tracked_request(
+                "openapi_it", "post",
                 "https://catasto.openapi.it/richiesta/elenco_immobili",
                 json={"foglio": foglio, "particella": particella,
                       "comune": parcel.get("municipality", "")},

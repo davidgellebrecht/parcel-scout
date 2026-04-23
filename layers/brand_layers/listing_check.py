@@ -55,6 +55,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 
 _GATE_AWAY_SEARCH = "https://www.gate-away.com/en/search/"
 
@@ -107,7 +108,8 @@ def _search_gate_away(query: str, region: str = "tuscany") -> dict:
     url = _GATE_AWAY_SEARCH
     params = {"q": query, "region": region}
     try:
-        resp = requests.get(
+        resp = tracked_request(
+            "gateaway", "get",
             url,
             params=params,
             headers=_HEADERS,

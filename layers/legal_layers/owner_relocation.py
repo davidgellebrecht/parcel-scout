@@ -153,7 +153,8 @@ def _load_comuni_index() -> dict:
         return _COMUNI_CACHE
 
     try:
-        resp = requests.get(_COMUNI_JSON_URL, timeout=15,
+        from cost_tracker import tracked_request
+        resp = tracked_request("comuni_json", "get", _COMUNI_JSON_URL, timeout=15,
                             headers={"User-Agent": "ParcelScout/1.0"})
         if resp.status_code == 200:
             comuni = resp.json()
@@ -235,7 +236,8 @@ def _detect_english_primary_website(url: str) -> bool:
     try:
         if not url.startswith("http"):
             url = "https://" + url
-        resp = requests.get(url, timeout=8, allow_redirects=True,
+        from cost_tracker import tracked_request
+        resp = tracked_request("website", "get", url, timeout=8, allow_redirects=True,
                             headers={"User-Agent": "ParcelScout/1.0"})
         if resp.status_code != 200:
             return False

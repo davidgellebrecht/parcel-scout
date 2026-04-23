@@ -49,6 +49,8 @@ API_PROFILES: dict[str, dict] = {
     "opencorp":    {"cost_usd": 0.0, "quota_units": 1.0},   # OpenCorporates free tier
     "gateaway":    {"cost_usd": 0.0, "quota_units": 1.0},   # Gate-Away.com listings
     "regione_wfs": {"cost_usd": 0.0, "quota_units": 1.0},   # Regione Toscana
+    "comuni_json": {"cost_usd": 0.0, "quota_units": 1.0},   # GitHub raw comuni index
+    "website":     {"cost_usd": 0.0, "quota_units": 1.0},   # generic estate-website probes
     # ── Free-tier APIs (quota-constrained) ────────────────────────────────
     "tripadvisor": {"cost_usd": 0.0, "quota_units": 1.0},   # 5,000 req/month
     "wine_searcher": {"cost_usd": 0.0, "quota_units": 1.0}, # 100 req/day

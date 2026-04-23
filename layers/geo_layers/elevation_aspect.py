@@ -52,6 +52,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 
 _OPENTOPODATA_URL = "https://api.opentopodata.org/v1/srtm90m"
 _DELTA_DEG        = 0.0009   # ~100 m at Tuscan latitudes (1° lat ≈ 111 km)
@@ -80,7 +81,8 @@ def _fetch_elevations(lat: float, lon: float) -> dict:
     loc_str = "|".join(f"{la},{lo}" for la, lo in points)
 
     try:
-        resp = requests.get(
+        resp = tracked_request(
+            "opentopo", "get",
             _OPENTOPODATA_URL,
             params={"locations": loc_str},
             timeout=15,

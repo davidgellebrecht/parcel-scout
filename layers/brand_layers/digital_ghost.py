@@ -46,6 +46,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 from datetime import date, datetime
 
 # ── Wayback CDX API — free Internet Archive search ────────────────────────────
@@ -69,7 +70,8 @@ def _check_wayback(url: str) -> dict:
     try:
         # Strip protocol for CDX query
         domain = re.sub(r'^https?://', '', url).split('/')[0]
-        resp = requests.get(
+        resp = tracked_request(
+            "wayback", "get",
             _WAYBACK_CDX,
             params={
                 "url":      domain,
@@ -135,7 +137,7 @@ def _check_whois(domain: str) -> dict:
 def _check_site_live(url: str) -> bool:
     """Return True if the website responds with HTTP 200."""
     try:
-        resp = requests.head(url, timeout=8, allow_redirects=True,
+        resp = tracked_request("website", "head", url, timeout=8, allow_redirects=True,
                              headers={"User-Agent": "ParcelScout/1.0"})
         return resp.status_code == 200
     except Exception:

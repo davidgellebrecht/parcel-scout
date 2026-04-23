@@ -83,7 +83,9 @@ def _check_agricultural_zone(lat: float, lon: float) -> dict:
     Returns a dict: {"in_zone_e": bool, "zone_label": str, "source": str}
     """
     try:
-        resp = requests.get(
+        from cost_tracker import tracked_request
+        resp = tracked_request(
+            "regione_wfs", "get",
             _GEOSCOPIO_WFS,
             params={
                 "service":     "WFS",

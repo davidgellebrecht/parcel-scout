@@ -100,7 +100,9 @@ def _get_token() -> str:
     This is like showing your ID at the door — you trade your credentials
     for a temporary pass that lets you make API calls.
     """
-    resp = requests.post(
+    from cost_tracker import tracked_request
+    resp = tracked_request(
+        "sentinel_hub", "post",
         _TOKEN_URL,
         data={
             "grant_type":    "client_credentials",
@@ -150,7 +152,9 @@ def _stats_request(token: str, bbox: list, date_from: str, date_to: str) -> dict
             }
         },
     }
-    resp = requests.post(
+    from cost_tracker import tracked_request
+    resp = tracked_request(
+        "sentinel_hub", "post",
         _STATS_URL,
         json=payload,
         headers={

@@ -1631,6 +1631,43 @@ try:
             )
         else:
             st.caption("No API calls logged yet. Run a Seed or Refresh to populate.")
+
+        # One-click backfill of old ranked_*.json runs into the DB.
+        import glob as _glob, os as _os
+        _old_runs = sorted(_glob.glob(_os.path.join(
+            _os.path.dirname(_os.path.abspath(__file__)), "ranked_*.json"
+        )), reverse=True)
+        if _old_runs:
+            st.markdown("---")
+            st.caption(
+                f"Found {len(_old_runs)} historical scan file(s). Import them to "
+                f"populate the living roster without re-running the pipeline."
+            )
+            if st.button("⤓  Import historical runs into DB", key="import_history_btn"):
+                import json as _json
+                _sid = storage.start_scan("SEED", config.REGION + " (historical import)")
+                _imp_added = _imp_updated = 0
+                _failed = 0
+                for _path in _old_runs:
+                    try:
+                        with open(_path, encoding="utf-8") as _fh:
+                            _parcels_hist = _json.load(_fh)
+                        for _p in _parcels_hist:
+                            _, _new = storage.upsert_parcel(_p, region=config.REGION)
+                            if _new:
+                                _imp_added += 1
+                            else:
+                                _imp_updated += 1
+                    except Exception:
+                        _failed += 1
+                storage.end_scan(added=_imp_added, updated=_imp_updated,
+                                 notes=f"imported {len(_old_runs) - _failed} historical file(s)")
+                st.success(
+                    f"Imported {_imp_added} new + {_imp_updated} updated parcels "
+                    f"from {len(_old_runs) - _failed} file(s)"
+                    + (f"  ·  {_failed} failed" if _failed else "")
+                )
+                st.rerun()
 except Exception as _exc:
     st.caption(f"(Cost tracker unavailable: {_exc})")
 
@@ -2191,15 +2228,22 @@ else:
 
             # ── Audit trail: every decision this parcel went through ─────────
             # Pulled live from the DB — shows what passed, what failed, and why.
+            # If the parcel isn't yet in the DB (loaded from an old session or
+            # pre-storage-upgrade run), we silently upsert it so it joins the
+            # living roster — future re-scans will then accumulate real audit.
             with st.expander("▼  Audit Trail — why this score?"):
                 _pid = storage.parcel_key(p)
                 _audit_rows = storage.get_parcel_audit(_pid, limit=200)
                 if not _audit_rows:
-                    st.caption(
-                        "No audit rows yet for this parcel. Run a Seed or Refresh "
-                        "to populate the trail. (Audit only captures runs made after "
-                        "the storage upgrade was installed.)"
-                    )
+                    # Not in DB yet — backfill so this parcel is tracked going forward.
+                    try:
+                        storage.upsert_parcel(p, region=config.REGION)
+                        st.caption(
+                            f"Parcel ID in DB: `{_pid}`  ·  Just added to the living "
+                            f"roster — no historical audit yet. A Refresh will populate the trail."
+                        )
+                    except Exception as _e:
+                        st.caption(f"Parcel not in DB and backfill failed: {_e}")
                 else:
                     st.caption(f"Parcel ID in DB: `{_pid}`  ·  {len(_audit_rows)} decision(s) logged")
                     st.dataframe(

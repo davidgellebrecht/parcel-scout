@@ -46,6 +46,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import requests
 import config
 from layers.base import BaseLayer
+from cost_tracker import tracked_request
 
 # ── Zone-level average critic scores (Wine Spectator / Wine Advocate scale) ──
 # Sourced from public WS/WA zone data. Update annually as new vintages score.
@@ -86,7 +87,8 @@ def _search_wine_searcher(producer_name: str, api_key: str) -> dict:
     }
     """
     try:
-        resp = requests.get(
+        resp = tracked_request(
+            "wine_searcher", "get",
             f"{_WINE_SEARCHER_BASE}/wine",
             params={
                 "api_key": api_key,
