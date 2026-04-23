@@ -145,6 +145,30 @@ CREATE TABLE IF NOT EXISTS api_calls (
 
 CREATE INDEX IF NOT EXISTS idx_api_ts  ON api_calls(ts);
 CREATE INDEX IF NOT EXISTS idx_api_api ON api_calls(api);
+
+CREATE TABLE IF NOT EXISTS acquisitions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    first_seen          TEXT NOT NULL,          -- when we first added this row
+    acquisition_date    TEXT,                   -- ISO date of the deal (YYYY-MM-DD)
+    buyer_name          TEXT,
+    buyer_type          TEXT,                   -- 'company' | 'individual' | 'unknown'
+    seller_name         TEXT,
+    estate_name         TEXT,
+    location_comune     TEXT,
+    location_province   TEXT,                   -- two-letter Italian province code (SI, FI, GR, ...)
+    estate_type         TEXT,                   -- 'wine' | 'olive' | 'mixed' | 'agricultural'
+    price_eur           INTEGER,                -- nullable; undisclosed deals
+    source_type         TEXT NOT NULL,          -- 'news' | 'company_formation'
+    source_url          TEXT,
+    source_title        TEXT,
+    confidence          TEXT,                   -- 'high' | 'medium' | 'low'
+    raw_data            TEXT,                   -- JSON blob of full original record
+    dedupe_key          TEXT UNIQUE             -- prevents duplicate rows on re-fetch
+);
+
+CREATE INDEX IF NOT EXISTS idx_acq_date   ON acquisitions(acquisition_date DESC);
+CREATE INDEX IF NOT EXISTS idx_acq_source ON acquisitions(source_type);
+CREATE INDEX IF NOT EXISTS idx_acq_buyer  ON acquisitions(buyer_name);
 """
 
 
@@ -440,6 +464,83 @@ def cost_summary() -> dict:
         "month":    _window(month_start),
         "all_time": _window("0000-00-00"),
     }
+
+
+# ── Acquisitions feed ────────────────────────────────────────────────────────
+
+def upsert_acquisition(record: dict) -> tuple[int, bool]:
+    """
+    Insert or update an acquisition row. Returns (row_id, was_new).
+    Uses `dedupe_key` to avoid inserting the same deal twice — callers pass a
+    stable key like 'news:<source_url>' or 'company:<oc_company_number>'.
+    """
+    dedupe = record.get("dedupe_key", "")
+    now    = _now_iso()
+    blob   = json.dumps(record, ensure_ascii=False, default=str)
+
+    with _conn() as c:
+        existing = c.execute(
+            "SELECT id FROM acquisitions WHERE dedupe_key = ?", (dedupe,)
+        ).fetchone()
+
+        if existing:
+            c.execute(
+                """UPDATE acquisitions SET
+                     acquisition_date = ?, buyer_name = ?, buyer_type = ?,
+                     seller_name = ?, estate_name = ?, location_comune = ?,
+                     location_province = ?, estate_type = ?, price_eur = ?,
+                     source_type = ?, source_url = ?, source_title = ?,
+                     confidence = ?, raw_data = ?
+                   WHERE id = ?""",
+                (
+                    record.get("acquisition_date"), record.get("buyer_name"),
+                    record.get("buyer_type"), record.get("seller_name"),
+                    record.get("estate_name"), record.get("location_comune"),
+                    record.get("location_province"), record.get("estate_type"),
+                    record.get("price_eur"), record.get("source_type"),
+                    record.get("source_url"), record.get("source_title"),
+                    record.get("confidence"), blob, existing["id"],
+                ),
+            )
+            return existing["id"], False
+        else:
+            cur = c.execute(
+                """INSERT INTO acquisitions (
+                     first_seen, acquisition_date, buyer_name, buyer_type,
+                     seller_name, estate_name, location_comune, location_province,
+                     estate_type, price_eur, source_type, source_url, source_title,
+                     confidence, raw_data, dedupe_key
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    now, record.get("acquisition_date"), record.get("buyer_name"),
+                    record.get("buyer_type"), record.get("seller_name"),
+                    record.get("estate_name"), record.get("location_comune"),
+                    record.get("location_province"), record.get("estate_type"),
+                    record.get("price_eur"), record.get("source_type"),
+                    record.get("source_url"), record.get("source_title"),
+                    record.get("confidence"), blob, dedupe,
+                ),
+            )
+            return cur.lastrowid, True
+
+
+def list_acquisitions(
+    source_type: str = "",
+    since_date:  str = "",
+    limit:       int = 500,
+) -> list[dict]:
+    """Return acquisition rows newest-first, optionally filtered by source/date."""
+    q    = "SELECT * FROM acquisitions WHERE 1=1"
+    args: list = []
+    if source_type:
+        q += " AND source_type = ?"; args.append(source_type)
+    if since_date:
+        q += " AND acquisition_date >= ?"; args.append(since_date)
+    q += " ORDER BY acquisition_date DESC NULLS LAST, first_seen DESC LIMIT ?"
+    args.append(limit)
+    with _conn() as c:
+        rows = c.execute(q, args).fetchall()
+    return [dict(r) for r in rows]
 
 
 def recent_scans(limit: int = 10) -> list[dict]:

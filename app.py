@@ -1644,6 +1644,138 @@ else:
     st.markdown(_SUBTITLE_HTML, unsafe_allow_html=True)
     demo_btn = False
 
+# ── View toggle: Parcel Scan ↔ Recent Acquisitions ───────────────────────────
+# Tab-like switcher. Default view is the parcel scan (what the app has always
+# done). Flipping to "Recent Acquisitions" shows the news + company-formation
+# feed and halts rendering of the scan UI via st.stop().
+_view = st.radio(
+    "View",
+    ["🔍 Parcel Scan", "📰 Recent Acquisitions"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="_view_toggle",
+)
+
+if _view == "📰 Recent Acquisitions":
+    import acquisitions_feed
+
+    st.markdown(
+        '<p style="font-family:var(--sans);color:var(--text-mid);'
+        'font-size:0.85rem;margin:0.2rem 0 1rem 0;">'
+        'Recent wine estate, vineyard, olive grove, and agricultural property '
+        'acquisitions in Tuscany — news-sourced or inferred from new-LLC formations. '
+        'Refresh to pull the latest.</p>',
+        unsafe_allow_html=True,
+    )
+
+    _refresh_cols = st.columns([1, 1, 2])
+    _do_refresh   = _refresh_cols[0].button(
+        "↻  Refresh feed",
+        type="primary",
+        use_container_width=True,
+        help="Runs a Gemini news search + OpenCorporates company-formation search. "
+             "Results persist in the database — you don't need to refresh every visit.",
+    )
+    _lookback = _refresh_cols[1].selectbox(
+        "Lookback",
+        [1, 2, 3, 5],
+        index=2,
+        format_func=lambda y: f"{y} year{'s' if y > 1 else ''}",
+        label_visibility="collapsed",
+    )
+
+    if _do_refresh:
+        with st.status("Searching for recent Tuscan estate acquisitions…", expanded=True) as _rstatus:
+            st.write("📰  Querying Gemini with Google Search grounding…")
+            summary = acquisitions_feed.refresh_all(lookback_years=_lookback)
+            if summary.get("news_errors"):
+                for _err in summary["news_errors"]:
+                    st.warning(f"⚠ News search: {_err.get('error', 'unknown error')}")
+            st.write(f"📰  News: {summary['news_added']} new · {summary['news_updated']} updated")
+            st.write(f"🏢  Company formations: {summary['comp_added']} new · {summary['comp_updated']} updated")
+            _rstatus.update(
+                label=f"Feed refreshed — {summary['total_rows']} total rows processed",
+                state="complete",
+            )
+
+    # ── Filters ───────────────────────────────────────────────────────────────
+    _filter_cols = st.columns([1, 1, 2])
+    _src_filter  = _filter_cols[0].selectbox(
+        "Source",
+        ["All", "News only", "Company formations only"],
+        key="_acq_src_filter",
+    )
+    _date_filter = _filter_cols[1].selectbox(
+        "Since",
+        ["All 3 years", "Last 12 months", "Last 6 months", "Last 30 days"],
+        key="_acq_date_filter",
+    )
+
+    _src_map = {
+        "All":                       "",
+        "News only":                 "news",
+        "Company formations only":   "company_formation",
+    }
+    from datetime import datetime as _dt, timedelta as _td
+    _date_map = {
+        "All 3 years":      (_dt.utcnow() - _td(days=3 * 365)).date().isoformat(),
+        "Last 12 months":   (_dt.utcnow() - _td(days=365)).date().isoformat(),
+        "Last 6 months":    (_dt.utcnow() - _td(days=182)).date().isoformat(),
+        "Last 30 days":     (_dt.utcnow() - _td(days=30)).date().isoformat(),
+    }
+
+    _rows = storage.list_acquisitions(
+        source_type=_src_map[_src_filter],
+        since_date=_date_map[_date_filter],
+        limit=500,
+    )
+
+    if not _rows:
+        st.info(
+            "No acquisitions in the database yet. Click **Refresh feed** to populate "
+            "it — the first run typically finds 15–30 deals."
+        )
+    else:
+        # Pretty formatter — convert to a clean display DataFrame
+        _display_rows = []
+        for r in _rows:
+            _display_rows.append({
+                "Date":      r.get("acquisition_date") or "—",
+                "Buyer":     r.get("buyer_name") or "—",
+                "Type":      r.get("buyer_type") or "—",
+                "Estate":    r.get("estate_name") or "—",
+                "Seller":    r.get("seller_name") or "—",
+                "Location":  " · ".join(
+                    x for x in [r.get("location_comune"), r.get("location_province")] if x
+                ) or "—",
+                "Category":  r.get("estate_type") or "—",
+                "Price €":   f"{r['price_eur']:,}" if r.get("price_eur") else "—",
+                "Source":    "📰 News" if r.get("source_type") == "news" else "🏢 LLC formation",
+                "Confidence": r.get("confidence") or "—",
+                "Link":      r.get("source_url") or "",
+            })
+
+        st.caption(f"Showing {len(_rows)} acquisition(s). Click any column header to sort.")
+        st.dataframe(
+            _display_rows,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Link": st.column_config.LinkColumn("Source link", display_text="Open ↗"),
+                "Price €": st.column_config.Column(width="small"),
+                "Confidence": st.column_config.Column(width="small"),
+            },
+        )
+
+        st.caption(
+            "📰 News rows come from Gemini web search over wine/real-estate press. "
+            "🏢 LLC-formation rows come from OpenCorporates — these are *proxy* signals "
+            "(a new agricultural LLC in a Tuscan province often means someone just "
+            "bought a parcel through it, but not always)."
+        )
+
+    st.stop()   # Halt rendering — the scan UI below does not run.
+
 # ── More info expander (cost, API usage, historical import) ──────────────────
 # Collapsed by default so the main page stays focused on scanning + results.
 # Click the expander to see API usage, cost totals, and tool-quota breakdowns.

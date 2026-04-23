@@ -51,6 +51,8 @@ API_PROFILES: dict[str, dict] = {
     "regione_wfs": {"cost_usd": 0.0, "quota_units": 1.0},   # Regione Toscana
     "comuni_json": {"cost_usd": 0.0, "quota_units": 1.0},   # GitHub raw comuni index
     "website":     {"cost_usd": 0.0, "quota_units": 1.0},   # generic estate-website probes
+    "gemini":      {"cost_usd": 0.003, "quota_units": 1.0}, # Gemini 2.0 Flash + Google Search grounding
+                                                             # rough per-request estimate at ~2k in / 2k out tokens
     # ── Free-tier APIs (quota-constrained) ────────────────────────────────
     "tripadvisor": {"cost_usd": 0.0, "quota_units": 1.0},   # 5,000 req/month
     "wine_searcher": {"cost_usd": 0.0, "quota_units": 1.0}, # 100 req/day

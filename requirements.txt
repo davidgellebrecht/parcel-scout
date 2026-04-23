@@ -16,3 +16,8 @@ python-whois>=0.9.0
 
 # Layer 9 (PDF export) — per-parcel Intelligence Report PDF download
 fpdf2>=2.7.0
+
+# ── Recent Acquisitions feed ──────────────────────────────────────────────────
+# Gemini 2.0 Flash + Google Search grounding powers the news-driven
+# acquisitions layer. Free tier: 15 req/min, plenty for a daily scan.
+google-genai>=0.3.0

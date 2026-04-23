@@ -100,6 +100,27 @@ Nothing in this guide touches your Streamlit Cloud deployment. You can:
 
 Zero-risk: both can run in parallel for as long as you want.
 
+## Auto-deploy on every push to main
+
+GitHub Actions redeploys the app automatically whenever code lands on `main`. The workflow file is at `.github/workflows/fly-deploy.yml`. To enable it once:
+
+1. **Generate a Fly deploy token** from your laptop:
+   ```bash
+   flyctl tokens create deploy -a giovanni-bonelli-parcel-scout
+   ```
+   Copy the entire token that gets printed (starts with `fm2_...`).
+
+2. **Add it as a GitHub repository secret**:
+   - Go to `https://github.com/davidgellebrecht/parcel-scout/settings/secrets/actions`
+   - Click **"New repository secret"**
+   - Name: `FLY_API_TOKEN` (exact spelling + caps matter)
+   - Secret: paste the token
+   - Click **Add secret**
+
+3. **That's it.** The next `git push origin main` triggers a deploy. Watch it at `https://github.com/davidgellebrecht/parcel-scout/actions`.
+
+If you ever want to roll back, you can trigger a manual deploy from the Actions tab (without pushing) by clicking **"Deploy to Fly.io" → "Run workflow"**.
+
 ## Ongoing operations
 
 ```bash
