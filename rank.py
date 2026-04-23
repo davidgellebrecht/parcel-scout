@@ -51,6 +51,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import config
+import storage
 
 # ── Import scout.py pipeline functions ────────────────────────────────────────
 # We call scout.py's individual functions directly rather than running it as a
@@ -213,6 +214,10 @@ def run_all_layers(parcels: list) -> list:
     max_workers = min(len(enabled), 8)   # cap at 8 threads; Overpass dislikes bursts
 
     for i, parcel in enumerate(parcels, 1):
+        prov_pid = (
+            f"cad:{parcel['cadastral_id']}" if parcel.get("cadastral_id")
+            else f"osm:{parcel.get('osm_type','')}/{parcel.get('osm_id','')}"
+        )
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_layer = {
                 executor.submit(layer.run, parcel): layer
@@ -220,13 +225,15 @@ def run_all_layers(parcels: list) -> list:
             }
             for future in as_completed(future_to_layer):
                 layer = future_to_layer[future]
+                layer_error = None
                 try:
                     result = future.result(timeout=60)
                 except Exception as exc:
                     # Layer crashed — record an empty result so the scan
                     # continues and other layers are not affected.
+                    layer_error = str(exc)[:80]
                     result = layer._empty_result(
-                        detail=f"Layer error: {str(exc)[:80]}"
+                        detail=f"Layer error: {layer_error}"
                     )
                 prefix = f"layer_{result['layer']}"
                 parcel[f"{prefix}_signal"] = result["signal"]
@@ -235,6 +242,18 @@ def run_all_layers(parcels: list) -> list:
                 parcel[f"{prefix}_paid"]   = result["paid"]
                 for k, v in result.get("data", {}).items():
                     parcel[f"{prefix}_{k}"] = v
+                # Audit trail: one line per layer run, recording fired/not-fired + detail
+                if layer_error:
+                    outcome = "ERROR"
+                elif result["signal"]:
+                    outcome = "FIRED"
+                else:
+                    outcome = "NOT_FIRED"
+                storage.log_audit(
+                    f"layer.{result['layer']}", outcome,
+                    (result.get("detail") or "")[:500],
+                    parcel_id=prov_pid,
+                )
 
         if i % 5 == 0 or i == total:
             sys.stdout.write(f"\r  Running layers... {i}/{total} parcels")
@@ -325,7 +344,32 @@ def export_json(parcels: list, path: str):
 
 # ─── Main pipeline ────────────────────────────────────────────────────────────
 
-def main():
+def run_pipeline(mode: str = "SEED", region: str = None) -> dict:
+    """
+    Execute the full scan and persist results to the SQLite store.
+
+    Parameters
+    ----------
+    mode   : 'SEED' (full scan, first-time) or 'REFRESH' (delta against stored parcels)
+    region : label for grouping parcels in the DB (defaults to config.REGION)
+
+    Returns
+    -------
+    dict with {parcels, added, updated, removed, scan_id, csv_path, json_path}.
+    Keeps the original CSV/JSON export behaviour as a side effect.
+    """
+    assert mode in ("SEED", "REFRESH"), f"mode must be SEED or REFRESH, got {mode!r}"
+    region = region or config.REGION
+
+    scan_id = storage.start_scan(mode, region)
+    try:
+        return _run_pipeline_inner(scan_id, mode, region)
+    except Exception as exc:
+        storage.end_scan(notes=f"ABORTED: {exc}")
+        raise
+
+
+def _run_pipeline_inner(scan_id: int, mode: str, region: str) -> dict:
     print_banner(config.FILTERS)
 
     # ── Step 1: OSM scan (reuses scout.py functions directly) ─────────────────
@@ -363,7 +407,9 @@ def main():
 
     if not parcels:
         print("  No results. Try relaxing filters in config.py.\n")
-        return
+        storage.end_scan(notes="no parcels matched filters")
+        return {"parcels": [], "added": 0, "updated": 0, "removed": 0,
+                "scan_id": scan_id, "csv_path": "", "json_path": ""}
 
     # ── Step 4: Group 2 annotation ────────────────────────────────────────────
     parcels = annotate_group2(parcels, distress_elements, estate_features, tourism_nodes)
@@ -383,14 +429,46 @@ def main():
     # ── Step 8: Print ranked table ────────────────────────────────────────────
     print_ranked(parcels)
 
-    # ── Step 9: Export ────────────────────────────────────────────────────────
+    # ── Step 9: Persist to SQLite (adds / updates rows; inactivates vanished) ─
+    seen_ids: set[str] = set()
+    added = updated = 0
+    for p in parcels:
+        pid, was_new = storage.upsert_parcel(p, region=region)
+        seen_ids.add(pid)
+        if was_new:
+            added += 1
+        else:
+            updated += 1
+
+    removed = 0
+    if mode == "REFRESH":
+        removed = storage.mark_inactive(region, seen_ids)
+
+    # ── Step 10: Export CSV/JSON (unchanged — additive, never breaks) ─────────
     ts        = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_path  = f"ranked_{ts}.csv"
     json_path = f"ranked_{ts}.json"
     export_csv(parcels, csv_path)
     export_json(parcels, json_path)
     print(f"  Saved → {csv_path}")
-    print(f"  Saved → {json_path}\n")
+    print(f"  Saved → {json_path}")
+    print(f"  DB    → {added} added · {updated} updated · {removed} marked inactive\n")
+
+    storage.end_scan(added=added, updated=updated, removed=removed)
+
+    return {
+        "parcels":  parcels,
+        "added":    added,
+        "updated":  updated,
+        "removed":  removed,
+        "scan_id":  scan_id,
+        "csv_path": csv_path,
+        "json_path": json_path,
+    }
+
+
+def main():
+    run_pipeline(mode="SEED")
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ except ImportError:
 
 
 import config
+import storage
 
 # ── Pipeline imports ──────────────────────────────────────────────────────────
 from scout import (
@@ -1598,6 +1599,41 @@ else:
     st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
     demo_btn = False
 
+# ── API Cost / Quota Badge ────────────────────────────────────────────────────
+# Shows running API usage across the whole tool. Free APIs show as "0 USD" —
+# the interesting number is usually the call count (quota burn).
+try:
+    _cost = storage.cost_summary()
+    _today = _cost["today"]
+    _month = _cost["month"]
+    _alltime = _cost["all_time"]
+    st.markdown(
+        f'<div style="background:var(--surface-low);border:1px solid var(--border);'
+        f'padding:0.6rem 0.9rem;margin:0.4rem 0 0.8rem 0;font-family:var(--sans);'
+        f'font-size:0.78rem;color:var(--text-mid);display:flex;gap:1.6rem;flex-wrap:wrap;">'
+        f'<span><strong style="color:var(--text);">Today:</strong> '
+        f'{_today["calls"]:,} calls · ${_today["cost_usd"]:.2f}</span>'
+        f'<span><strong style="color:var(--text);">Month:</strong> '
+        f'{_month["calls"]:,} calls · ${_month["cost_usd"]:.2f}</span>'
+        f'<span><strong style="color:var(--text);">All-time:</strong> '
+        f'{_alltime["calls"]:,} calls · ${_alltime["cost_usd"]:.2f}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+    with st.expander("API usage breakdown ›", expanded=False):
+        if _month["by_api"]:
+            st.dataframe(
+                pd.DataFrame(_month["by_api"]).rename(
+                    columns={"api": "API", "n": "Calls this month", "cost": "Cost USD"}
+                ),
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("No API calls logged yet. Run a Seed or Refresh to populate.")
+except Exception as _exc:
+    st.caption(f"(Cost tracker unavailable: {_exc})")
+
 # ── Demo preset — fires when demo button is clicked ───────────────────────────
 if demo_btn:
     # Province
@@ -1841,13 +1877,35 @@ if st.session_state.get("scan_time"):
         f"({elapsed:.0f}s)  ·  Region: {st.session_state.get('scan_region', '')}"
     )
 
-run_btn = st.button("Run Off-Market Scan", type="primary", use_container_width=True)
+# Two buttons: Seed (full scan, first-time) and Refresh (delta against stored parcels).
+# Both run the same pipeline; the difference is just how we persist the result —
+# Refresh additionally marks parcels that vanished from OSM as INACTIVE.
+_btn_seed_col, _btn_refresh_col = st.columns(2)
+seed_btn    = _btn_seed_col.button(
+    "▶  Seed — Full Scan",
+    type="primary",
+    use_container_width=True,
+    help="Full scan of the region. Writes every parcel to the persistent store.",
+)
+refresh_btn = _btn_refresh_col.button(
+    "↻  Refresh — Update Deltas",
+    use_container_width=True,
+    help="Re-runs the scan, updates existing parcels, and marks vanished ones INACTIVE.",
+)
+run_btn = seed_btn or refresh_btn
 
 # ── Trigger scan ──────────────────────────────────────────────────────────────
 _demo_trigger = st.session_state.pop("demo_run_trigger", False)
 if run_btn or _demo_trigger:
+    _scan_mode = "REFRESH" if refresh_btn else "SEED"
     st.session_state.scan_log    = []
     st.session_state.scan_region = config.REGION
+    st.session_state.scan_mode   = _scan_mode
+    try:
+        st.session_state.scan_id = storage.start_scan(_scan_mode, config.REGION)
+    except Exception as _exc:
+        st.session_state.scan_id = None
+        st.warning(f"Storage unavailable — scan will run but won't be saved: {_exc}")
     t0 = time.time()
 
     with st.status("Running Parcel Scout scan…", expanded=True) as scan_status:
@@ -1883,12 +1941,37 @@ if run_btn or _demo_trigger:
         st.session_state.scan_time    = datetime.now()
         st.session_state.scan_elapsed = elapsed
 
+        # ── Persist to SQLite: upsert every matched parcel ───────────────────
+        # On SEED: all are inserted (or updated if the DB already had them).
+        # On REFRESH: anything in the DB for this region that was NOT seen this
+        # run gets flagged INACTIVE, so the living list reflects OSM reality.
+        db_added = db_updated = db_removed = 0
+        try:
+            seen_ids: set = set()
+            for _p in parcels:
+                _pid, _new = storage.upsert_parcel(_p, region=config.REGION)
+                seen_ids.add(_pid)
+                if _new:
+                    db_added += 1
+                else:
+                    db_updated += 1
+            if _scan_mode == "REFRESH":
+                db_removed = storage.mark_inactive(config.REGION, seen_ids)
+            storage.end_scan(added=db_added, updated=db_updated, removed=db_removed)
+        except Exception as _exc:
+            st.session_state.scan_log.append(f"  ⚠ DB persist failed: {_exc}")
+
+        st.session_state.scan_db_summary = {
+            "added": db_added, "updated": db_updated, "removed": db_removed
+        }
+
         total_raw = st.session_state.get("total_raw", 0)
         if parcels:
             scan_status.update(
                 label=(
-                    f"Scan complete — scanned {total_raw:,} parcels in {config.REGION}, "
-                    f"found {len(parcels)} matching your filters  ({elapsed:.0f}s)"
+                    f"{_scan_mode} complete — scanned {total_raw:,} parcels in {config.REGION}, "
+                    f"found {len(parcels)} matching  ·  DB: {db_added} added · "
+                    f"{db_updated} updated · {db_removed} inactive  ({elapsed:.0f}s)"
                 ),
                 state="complete",
             )
@@ -2104,6 +2187,28 @@ else:
                         "⚡ Proxy signals use indirect data as a stand-in for the authoritative source. "
                         "They are directionally correct but less precise. "
                         "See signal descriptions above for upgrade paths."
+                    )
+
+            # ── Audit trail: every decision this parcel went through ─────────
+            # Pulled live from the DB — shows what passed, what failed, and why.
+            with st.expander("▼  Audit Trail — why this score?"):
+                _pid = storage.parcel_key(p)
+                _audit_rows = storage.get_parcel_audit(_pid, limit=200)
+                if not _audit_rows:
+                    st.caption(
+                        "No audit rows yet for this parcel. Run a Seed or Refresh "
+                        "to populate the trail. (Audit only captures runs made after "
+                        "the storage upgrade was installed.)"
+                    )
+                else:
+                    st.caption(f"Parcel ID in DB: `{_pid}`  ·  {len(_audit_rows)} decision(s) logged")
+                    st.dataframe(
+                        pd.DataFrame(_audit_rows).rename(columns={
+                            "ts": "When (UTC)", "step": "Step",
+                            "outcome": "Outcome", "detail": "Detail",
+                            "scan_id": "Scan #",
+                        }),
+                        use_container_width=True, hide_index=True,
                     )
 
             # ── PDF download ──────────────────────────────────────────────────

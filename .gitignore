@@ -25,3 +25,8 @@ env/
 
 # macOS metadata
 .DS_Store
+data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm

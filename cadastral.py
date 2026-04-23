@@ -27,6 +27,8 @@ import xml.etree.ElementTree as ET
 import requests
 
 import config
+import storage
+from cost_tracker import tracked_request
 
 
 # ─── AdE WFS Configuration ──────────────────────────────────────────────────
@@ -132,7 +134,7 @@ def query_cadastral_parcels(lat: float, lon: float,
 
     try:
         _last_ade_call = time.time()
-        resp = requests.get(ADE_WFS_URL, params=params, timeout=15)
+        resp = tracked_request("ade_wfs", "get", ADE_WFS_URL, params=params, timeout=15)
         resp.raise_for_status()
         return _parse_cadastral_gml(resp.text)
     except Exception as exc:
@@ -447,7 +449,7 @@ def query_corine_landuse(lat: float, lon: float) -> dict:
     }
 
     try:
-        resp = requests.get(CORINE_REST_URL, params=params, timeout=10)
+        resp = tracked_request("corine", "get", CORINE_REST_URL, params=params, timeout=10)
         resp.raise_for_status()
         data = resp.json()
         return _parse_corine_response(data)
@@ -721,10 +723,23 @@ def enrich_parcel(parcel: dict, osm_nodes: list) -> dict:
     """
     lat = parcel["lat"]
     lon = parcel["lon"]
+    prov_pid = f"osm:{parcel.get('osm_type','')}/{parcel.get('osm_id','')}"
 
     # ── Step 1: Cadastral lookup ─────────────────────────────────────────
     candidates = query_cadastral_parcels(lat, lon)
     match = match_osm_to_cadastral(lat, lon, osm_nodes, candidates)
+    if match:
+        storage.log_audit(
+            "cadastral.match", "PASS",
+            f"match={match['match_type']} ref={match.get('cadastral_ref','')}",
+            parcel_id=prov_pid,
+        )
+    else:
+        storage.log_audit(
+            "cadastral.match", "FAIL",
+            f"no cadastral match among {len(candidates)} candidates",
+            parcel_id=prov_pid,
+        )
 
     if match:
         parcel["cadastral_id"]             = match["cadastral_ref"]
@@ -756,6 +771,11 @@ def enrich_parcel(parcel: dict, osm_nodes: list) -> dict:
     parcel["corine_match"] = check_corine_match(
         parcel.get("primary_crop_type", ""),
         corine["corine_code"]
+    )
+    storage.log_audit(
+        "cadastral.corine", parcel["corine_match"].upper(),
+        f"OSM={parcel.get('primary_crop_type','')} vs CORINE={corine['corine_label'] or 'unknown'}",
+        parcel_id=prov_pid,
     )
 
     # ── Step 3: Data quality score ───────────────────────────────────────

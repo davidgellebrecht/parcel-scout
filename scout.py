@@ -23,6 +23,8 @@ import requests
 
 import cadastral
 import config
+import storage
+from cost_tracker import tracked_request
 
 
 # ─── Overpass API ─────────────────────────────────────────────────────────────
@@ -52,7 +54,7 @@ def _overpass(query: str, retries: int = 2, backoff: int = 6) -> dict:
     for mirror_idx, url in enumerate(config.OVERPASS_FALLBACK_URLS, 1):
         for attempt in range(1, retries + 1):
             try:
-                resp = requests.post(url, data={"data": query}, timeout=http_timeout)
+                resp = tracked_request("overpass", "post", url, data={"data": query}, timeout=http_timeout)
                 resp.raise_for_status()
                 _last_overpass_call = time.time()
                 return resp.json()
@@ -292,7 +294,8 @@ def fetch_distress_elements() -> list:
     print("  [G2] Querying EFFIS fire history...")
     s, w, n, e = config.REGION_BBOX
     try:
-        resp = requests.get(
+        resp = tracked_request(
+            "effis", "get",
             "https://maps.effis.emergency.copernicus.eu/gwis/wfs",
             params={
                 "service":      "WFS",
@@ -736,7 +739,8 @@ def fetch_owner_data(lat: float, lon: float) -> dict:
 
     try:
         # ── Step 1: Reverse geocode via Nominatim ─────────────────────────────
-        nom = requests.get(
+        nom = tracked_request(
+            "nominatim", "get",
             "https://nominatim.openstreetmap.org/reverse",
             params={"lat": lat, "lon": lon, "format": "json"},
             headers={"User-Agent": "ParcelScout/1.0"},
@@ -752,7 +756,8 @@ def fetch_owner_data(lat: float, lon: float) -> dict:
             return _OWNER_PLACEHOLDER   # too rural to resolve an address
 
         # ── Step 2: Normalise address → id_indirizzo ──────────────────────────
-        ind = requests.get(
+        ind = tracked_request(
+            "openapi_it", "get",
             "https://catasto.openapi.it/indirizzo",
             params={"strada": road, "comune": comune, "provincia": "SI"},
             headers=headers,
@@ -765,7 +770,8 @@ def fetch_owner_data(lat: float, lon: float) -> dict:
             return _OWNER_PLACEHOLDER
 
         # ── Step 3: Property list → owner details ─────────────────────────────
-        props = requests.post(
+        props = tracked_request(
+            "openapi_it", "post",
             "https://catasto.openapi.it/richiesta/elenco_immobili",
             json={"id_indirizzo": id_indirizzo},
             headers=headers,
@@ -807,9 +813,12 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
     for el in raw_elements:
         tags  = el.get("tags", {})
         nodes = extract_nodes(el)
+        # Provisional parcel ID for audit lines during filtering (no cadastral ID yet).
+        prov_pid = f"osm:{el.get('type','')}/{el.get('id','')}"
 
         if not nodes:
             skipped["no_geometry"] += 1
+            storage.log_audit("filter.geometry", "SKIP", "no geometry nodes", parcel_id=prov_pid)
             continue
 
         lat, lon  = centroid(nodes)
@@ -822,14 +831,34 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
         if filters["min_square_footage"]:
             if area_sqm < config.MIN_AREA_SQM:
                 skipped["area"] += 1
+                storage.log_audit(
+                    "filter.area", "FAIL",
+                    f"{area_sqm:.0f} m² < {config.MIN_AREA_SQM:.0f} m² minimum",
+                    parcel_id=prov_pid,
+                )
                 continue
+            storage.log_audit(
+                "filter.area", "PASS",
+                f"{area_sqm:.0f} m² ≥ {config.MIN_AREA_SQM:.0f} m²",
+                parcel_id=prov_pid,
+            )
 
         # Filter: agricultural_land — secondary gate for farmland/grass/meadow elements
         # that were fetched by the expanded query but lack qualifying crop/produce subtags.
         if filters["agricultural_land"]:
             if not _qualifies_as_agricultural(tags):
                 skipped["non_agricultural"] += 1
+                storage.log_audit(
+                    "filter.agricultural", "FAIL",
+                    f"landuse={tags.get('landuse','')} lacks qualifying crop/produce",
+                    parcel_id=prov_pid,
+                )
                 continue
+            storage.log_audit(
+                "filter.agricultural", "PASS",
+                f"landuse={tags.get('landuse','')}",
+                parcel_id=prov_pid,
+            )
 
         # Filter: proximity_to_airport
         # dist_ap_km is haversine (straight-line). Multiply by ROAD_DISTANCE_FACTOR
@@ -838,9 +867,20 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
         airport    = nearest_airport_info(lat, lon, airports)
         dist_ap_km = airport["dist_km"]
         if filters["proximity_to_airport"]:
-            if dist_ap_km * config.ROAD_DISTANCE_FACTOR > config.AIRPORT_MAX_KM:
+            road_km = dist_ap_km * config.ROAD_DISTANCE_FACTOR
+            if road_km > config.AIRPORT_MAX_KM:
                 skipped["airport"] += 1
+                storage.log_audit(
+                    "filter.airport", "FAIL",
+                    f"{airport['name']} {road_km:.1f} km > {config.AIRPORT_MAX_KM:.0f} km cap",
+                    parcel_id=prov_pid,
+                )
                 continue
+            storage.log_audit(
+                "filter.airport", "PASS",
+                f"{airport['name']} {road_km:.1f} km",
+                parcel_id=prov_pid,
+            )
 
         # Filter: historical_designation — historic site must be physically inside the parcel polygon
         on_parcel_historic = historic_on_parcel(nodes, historic_sites)
@@ -848,7 +888,17 @@ def filter_parcels(raw_elements: list, airports: list, historic_sites: list) -> 
         if filters["historical_designation"]:
             if not is_heritage:
                 skipped["historic"] += 1
+                storage.log_audit(
+                    "filter.heritage", "FAIL",
+                    "no renovatable historic structure on-parcel",
+                    parcel_id=prov_pid,
+                )
                 continue
+            storage.log_audit(
+                "filter.heritage", "PASS",
+                f"on-parcel: {on_parcel_historic['tag_type']} ({on_parcel_historic['confidence']})",
+                parcel_id=prov_pid,
+            )
 
         owner = fetch_owner_data(lat, lon)
 
