@@ -1621,11 +1621,17 @@ def build_rankings_df(parcels: list) -> pd.DataFrame:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown('<span class="gb-label">Giovanni Bonelli Group</span>', unsafe_allow_html=True)
 
+_SUBTITLE_HTML = (
+    '<p style="font-family:var(--sans);font-size:0.95rem;font-weight:500;'
+    'color:var(--text);letter-spacing:0.01em;margin:-0.4rem 0 0.9rem 0;">'
+    'Off-market acquisition intelligence — Tuscany, Italy</p>'
+)
+
 if DEMO_MODE:
     _h_left, _h_right = st.columns([2, 1])
     with _h_left:
         st.markdown("# Parcel Scout")
-        st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+        st.markdown(_SUBTITLE_HTML, unsafe_allow_html=True)
     with _h_right:
         st.markdown('<div class="demo-marker"></div>', unsafe_allow_html=True)
         demo_btn = st.button(
@@ -1635,31 +1641,32 @@ if DEMO_MODE:
         )
 else:
     st.markdown("# Parcel Scout")
-    st.markdown("*Off-market acquisition intelligence — Tuscany, Italy*")
+    st.markdown(_SUBTITLE_HTML, unsafe_allow_html=True)
     demo_btn = False
 
-# ── API Cost / Quota Badge ────────────────────────────────────────────────────
-# Shows running API usage across the whole tool. Free APIs show as "0 USD" —
-# the interesting number is usually the call count (quota burn).
-try:
-    _cost = storage.cost_summary()
-    _today = _cost["today"]
-    _month = _cost["month"]
-    _alltime = _cost["all_time"]
-    st.markdown(
-        f'<div style="background:var(--surface-low);border:1px solid var(--border);'
-        f'padding:0.6rem 0.9rem;margin:0.4rem 0 0.8rem 0;font-family:var(--sans);'
-        f'font-size:0.78rem;color:var(--text-mid);display:flex;gap:1.6rem;flex-wrap:wrap;">'
-        f'<span><strong style="color:var(--text);">Today:</strong> '
-        f'{_today["calls"]:,} calls · ${_today["cost_usd"]:.2f}</span>'
-        f'<span><strong style="color:var(--text);">Month:</strong> '
-        f'{_month["calls"]:,} calls · ${_month["cost_usd"]:.2f}</span>'
-        f'<span><strong style="color:var(--text);">All-time:</strong> '
-        f'{_alltime["calls"]:,} calls · ${_alltime["cost_usd"]:.2f}</span>'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-    with st.expander("API usage breakdown ›", expanded=False):
+# ── More info expander (cost, API usage, historical import) ──────────────────
+# Collapsed by default so the main page stays focused on scanning + results.
+# Click the expander to see API usage, cost totals, and tool-quota breakdowns.
+with st.expander("ℹ  More info — API usage, costs & data sources", expanded=False):
+    try:
+        _cost = storage.cost_summary()
+        _today = _cost["today"]
+        _month = _cost["month"]
+        _alltime = _cost["all_time"]
+        st.markdown(
+            f'<div style="background:var(--surface-low);border:1px solid var(--border);'
+            f'padding:0.6rem 0.9rem;margin:0.2rem 0 0.8rem 0;font-family:var(--sans);'
+            f'font-size:0.78rem;color:var(--text-mid);display:flex;gap:1.6rem;flex-wrap:wrap;">'
+            f'<span><strong style="color:var(--text);">Today:</strong> '
+            f'{_today["calls"]:,} calls · ${_today["cost_usd"]:.2f}</span>'
+            f'<span><strong style="color:var(--text);">Month:</strong> '
+            f'{_month["calls"]:,} calls · ${_month["cost_usd"]:.2f}</span>'
+            f'<span><strong style="color:var(--text);">All-time:</strong> '
+            f'{_alltime["calls"]:,} calls · ${_alltime["cost_usd"]:.2f}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown("**API call breakdown (this month)**")
         if _month["by_api"]:
             st.dataframe(
                 pd.DataFrame(_month["by_api"]).rename(
@@ -1669,7 +1676,7 @@ try:
                 hide_index=True,
             )
         else:
-            st.caption("No API calls logged yet. Run a Seed or Refresh to populate.")
+            st.caption("No API calls logged yet. Run a scan to populate.")
 
         # One-click backfill of old ranked_*.json runs into the DB.
         import glob as _glob, os as _os
@@ -1707,8 +1714,8 @@ try:
                     + (f"  ·  {_failed} failed" if _failed else "")
                 )
                 st.rerun()
-except Exception as _exc:
-    st.caption(f"(Cost tracker unavailable: {_exc})")
+    except Exception as _exc:
+        st.caption(f"(Cost tracker unavailable: {_exc})")
 
 # ── Demo preset — fires when demo button is clicked ───────────────────────────
 if demo_btn:
@@ -1953,27 +1960,25 @@ if st.session_state.get("scan_time"):
         f"({elapsed:.0f}s)  ·  Region: {st.session_state.get('scan_region', '')}"
     )
 
-# Two buttons: Seed (full scan, first-time) and Refresh (delta against stored parcels).
-# Both run the same pipeline; the difference is just how we persist the result —
-# Refresh additionally marks parcels that vanished from OSM as INACTIVE.
-_btn_seed_col, _btn_refresh_col = st.columns(2)
-seed_btn    = _btn_seed_col.button(
-    "▶  Seed — Full Scan",
+# Single "Run Scan" button. Every scan upserts new/existing parcels and marks
+# any that vanished from OSM as INACTIVE. Two buttons were redundant — OSM
+# parcel geometry rarely changes, but the 14 layer signals (listings, domains,
+# company status, fires, permits) are re-evaluated every run, which is the
+# real reason to run a scan.
+run_btn = st.button(
+    "▶  Run Scan",
     type="primary",
     use_container_width=True,
-    help="Full scan of the region. Writes every parcel to the persistent store.",
+    help="Scan the region. New parcels are added, existing ones re-scored, "
+         "vanished ones marked INACTIVE.",
 )
-refresh_btn = _btn_refresh_col.button(
-    "↻  Refresh — Update Deltas",
-    use_container_width=True,
-    help="Re-runs the scan, updates existing parcels, and marks vanished ones INACTIVE.",
-)
-run_btn = seed_btn or refresh_btn
 
 # ── Trigger scan ──────────────────────────────────────────────────────────────
 _demo_trigger = st.session_state.pop("demo_run_trigger", False)
 if run_btn or _demo_trigger:
-    _scan_mode = "REFRESH" if refresh_btn else "SEED"
+    # Every run behaves like a REFRESH — upsert + mark-inactive. On the first
+    # run against an empty DB, mark-inactive is simply a no-op.
+    _scan_mode = "REFRESH"
     st.session_state.scan_log    = []
     st.session_state.scan_region = config.REGION
     st.session_state.scan_mode   = _scan_mode
