@@ -1686,13 +1686,7 @@ if DEMO_MODE:
             key="demo_kennedy_btn",
             use_container_width=True,
         )
-        demo_refresh_btn = st.button(
-            "↻ Refresh demo snapshot (slow)",
-            key="demo_refresh_btn",
-            use_container_width=True,
-            help="Regenerate the cached demo by running a real scan. "
-                 "Only needed when you want fresher data.",
-        )
+        demo_refresh_btn = False
 else:
     st.markdown("# Parcel Scout")
     st.markdown(_SUBTITLE_HTML, unsafe_allow_html=True)
