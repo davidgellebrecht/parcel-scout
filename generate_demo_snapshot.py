@@ -18,6 +18,13 @@ from datetime import datetime
 
 import config
 import storage
+
+# filter_parcels and the layers call storage.log_audit, which has a SQLite FK
+# constraint on parcel_id → parcels(id). In a fresh / partial run those rows
+# may not exist yet, so audit inserts fail. We don't need audit rows for the
+# snapshot, so neuter the call.
+storage.log_audit = lambda *a, **kw: None
+
 from scout import (
     fetch_airports,
     fetch_historic_sites,
