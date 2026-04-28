@@ -163,33 +163,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ── Access-password gate (Fly.io deployment) ──────────────────────────────────
-# On Fly, we set PARCEL_SCOUT_ACCESS_PASSWORD as a secret — only users who
-# enter it see the app. Locally the env var is unset, so the gate is disabled
-# and `streamlit run app.py` just works.
 import os as _os
-_REQUIRED_PASSWORD = _os.environ.get("PARCEL_SCOUT_ACCESS_PASSWORD", "")
-if _REQUIRED_PASSWORD:
-    if not st.session_state.get("_auth_ok"):
-        st.markdown(
-            "<div style='max-width:420px;margin:4rem auto;padding:2rem;"
-            "background:#1e2838;border:1px solid #2d3d52;border-radius:4px;"
-            "color:#c8c3bc;font-family:Manrope,system-ui,sans-serif;'>"
-            "<h3 style='font-family:Noto Serif,Georgia,serif;margin-top:0;'>"
-            "Parcel Scout</h3>"
-            "<p style='color:#a8a49f;font-size:0.85rem;'>"
-            "Giovanni Bonelli Group · Private access</p>",
-            unsafe_allow_html=True,
-        )
-        _pw = st.text_input("Access password", type="password", key="_auth_pw_input")
-        if st.button("Sign in", key="_auth_submit_btn", type="primary"):
-            if _pw == _REQUIRED_PASSWORD:
-                st.session_state["_auth_ok"] = True
-                st.rerun()
-            else:
-                st.error("Incorrect password.")
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.stop()
 
 # ── Load Streamlit secrets ────────────────────────────────────────────────────
 # Two sources, in order:
