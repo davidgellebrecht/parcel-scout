@@ -52,6 +52,53 @@ from rank import (
 # Set to False to hide the demo button entirely.
 DEMO_MODE = True
 
+# ── Demo snapshot cache ───────────────────────────────────────────────────────
+# The "Demo for Michael Kennedy" button serves results from a cached JSON
+# snapshot so the demo loads instantly instead of re-running a 1–3 minute
+# Overpass scan. The snapshot lives in the Fly persistent volume so it
+# survives deploys. First click after deploy runs a real scan and saves it.
+
+import os as _os_demo
+
+def _demo_snapshot_path() -> str:
+    base = _os_demo.environ.get("PARCEL_SCOUT_DATA_DIR") or _os_demo.path.dirname(
+        _os_demo.path.abspath(__file__)
+    )
+    return _os_demo.path.join(base, "demo_snapshot.json")
+
+def _load_demo_snapshot():
+    path = _demo_snapshot_path()
+    if not _os_demo.path.exists(path):
+        bundled = _os_demo.path.join(
+            _os_demo.path.dirname(_os_demo.path.abspath(__file__)),
+            "demo_snapshot.json",
+        )
+        if _os_demo.path.exists(bundled):
+            path = bundled
+        else:
+            return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return None
+
+def _save_demo_snapshot(parcels: list, total_raw: int) -> None:
+    try:
+        with open(_demo_snapshot_path(), "w", encoding="utf-8") as fh:
+            json.dump(
+                {
+                    "parcels": parcels,
+                    "total_raw": total_raw,
+                    "saved_at": datetime.now().isoformat(timespec="seconds"),
+                    "region": config.REGION,
+                },
+                fh,
+                default=str,
+            )
+    except Exception:
+        pass
+
 # ── Theme toggle ──────────────────────────────────────────────────────────────
 # "dark"    → Stitch-inspired dark charcoal + sage green (current)
 # "classic" → original warm cream + gold palette
@@ -1639,10 +1686,18 @@ if DEMO_MODE:
             key="demo_kennedy_btn",
             use_container_width=True,
         )
+        demo_refresh_btn = st.button(
+            "↻ Refresh demo snapshot (slow)",
+            key="demo_refresh_btn",
+            use_container_width=True,
+            help="Regenerate the cached demo by running a real scan. "
+                 "Only needed when you want fresher data.",
+        )
 else:
     st.markdown("# Parcel Scout")
     st.markdown(_SUBTITLE_HTML, unsafe_allow_html=True)
     demo_btn = False
+    demo_refresh_btn = False
 
 # ── View toggle: Parcel Scan ↔ Recent Acquisitions ───────────────────────────
 # Tab-like switcher. Default view is the parcel scan (what the app has always
@@ -1777,22 +1832,19 @@ if _view == "📰 Recent Acquisitions":
     st.stop()   # Halt rendering — the scan UI below does not run.
 
 # ── Demo preset — fires when demo button is clicked ───────────────────────────
-if demo_btn:
-    # Province
+if demo_btn or demo_refresh_btn:
+    # Always set the demo widget config so the UI matches the snapshot scenario
     st.session_state["province_select"] = "Chianti Classico, Siena (DEMO)"
-    # Hard filters — all ON
     st.session_state["filter_proximity_to_airport"]  = True
     st.session_state["filter_agricultural_land"]     = True
     st.session_state["filter_min_square_footage"]    = True
     st.session_state["filter_historical_designation"] = True
-    # Free signals — only DOCG wine zone and Napa Neighbor (fast, no extra queries)
     st.session_state["sig_g2_premium_wine_zone"]  = True
     st.session_state["sig_g2_distress_signal"]    = False
     st.session_state["sig_g2_succession_signal"]  = False
     st.session_state["sig_g2_lodging_overlay"]    = False
     st.session_state["layer_layer_napa_neighbor_signal"]  = True
     st.session_state["layer_layer_digital_ghost_signal"]  = False
-    # Premium layers — all OFF
     st.session_state["layer_layer_satellite_neglect_signal"]   = False
     st.session_state["layer_layer_permit_paralysis_signal"]    = False
     st.session_state["layer_layer_zoning_alchemy_signal"]      = False
@@ -1800,8 +1852,15 @@ if demo_btn:
     st.session_state["layer_layer_terroir_score_delta_signal"] = False
     st.session_state["layer_layer_succession_frag_signal"]     = False
     st.session_state["layer_layer_owner_relocation_signal"]    = False
-    # Flag to auto-fire the scan on next rerun
-    st.session_state["demo_run_trigger"] = True
+
+    # Refresh button: force a real scan that will overwrite the cached snapshot.
+    # Demo button: try snapshot first, fall back to real scan if missing.
+    _snap = None if demo_refresh_btn else _load_demo_snapshot()
+    if _snap and _snap.get("parcels"):
+        st.session_state["demo_load_cached"] = True
+    else:
+        st.session_state["demo_run_trigger"] = True
+        st.session_state["demo_save_snapshot"] = True
     st.rerun()
 
 # ── Hero image strip ──────────────────────────────────────────────────────────
@@ -2033,7 +2092,29 @@ run_btn = st.button(
 )
 
 # ── Trigger scan ──────────────────────────────────────────────────────────────
-_demo_trigger = st.session_state.pop("demo_run_trigger", False)
+_demo_trigger      = st.session_state.pop("demo_run_trigger", False)
+_demo_save_snap    = st.session_state.pop("demo_save_snapshot", False)
+_demo_load_cached  = st.session_state.pop("demo_load_cached", False)
+
+# Fast path: cached demo snapshot — populate session state directly, no scan.
+if _demo_load_cached:
+    _snap = _load_demo_snapshot()
+    if _snap and _snap.get("parcels"):
+        st.session_state.parcels      = _snap["parcels"]
+        st.session_state.total_raw    = _snap.get("total_raw", len(_snap["parcels"]))
+        st.session_state.scan_time    = datetime.now()
+        st.session_state.scan_elapsed = 0.0
+        st.session_state.scan_region  = _snap.get("region", config.REGION)
+        st.session_state.scan_mode    = "DEMO (cached)"
+        st.session_state.scan_log     = [
+            f"Loaded cached demo snapshot — {len(_snap['parcels'])} parcels",
+            f"Snapshot saved: {_snap.get('saved_at', 'unknown')}",
+        ]
+        st.session_state.scan_db_summary = {"added": 0, "updated": 0, "removed": 0}
+        st.success(
+            f"Demo loaded instantly from snapshot · {len(_snap['parcels'])} parcels"
+        )
+
 if run_btn or _demo_trigger:
     # Every run behaves like a REFRESH — upsert + mark-inactive. On the first
     # run against an empty DB, mark-inactive is simply a no-op.
@@ -2104,6 +2185,13 @@ if run_btn or _demo_trigger:
         st.session_state.scan_db_summary = {
             "added": db_added, "updated": db_updated, "removed": db_removed
         }
+
+        # Save the demo snapshot so future demo clicks load instantly.
+        if _demo_save_snap and parcels:
+            _save_demo_snapshot(parcels, st.session_state.get("total_raw", len(parcels)))
+            st.session_state.scan_log.append(
+                f"  ✓ Saved demo snapshot ({len(parcels)} parcels) — future demos load instantly"
+            )
 
         total_raw = st.session_state.get("total_raw", 0)
         if parcels:
