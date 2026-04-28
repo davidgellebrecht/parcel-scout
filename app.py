@@ -2377,7 +2377,17 @@ else:
                         "Data Quality": "⚡ proxy" if is_proxy else "authoritative",
                         "Detail":       str(p.get(detail_key, "")),
                     })
-                st.dataframe(pd.DataFrame(detail_rows), use_container_width=True, hide_index=True)
+                st.dataframe(
+                    pd.DataFrame(detail_rows),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Signal":       st.column_config.TextColumn(width="medium"),
+                        "Fired":        st.column_config.TextColumn(width="small"),
+                        "Data Quality": st.column_config.TextColumn(width="small"),
+                        "Detail":       st.column_config.TextColumn(width="large"),
+                    },
+                )
                 if any(sm.get("proxy") for sm in SIGNAL_META if sm["key"] in active_keys):
                     st.caption(
                         "⚡ Proxy signals use indirect data as a stand-in for the authoritative source. "
