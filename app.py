@@ -2370,7 +2370,7 @@ else:
                 f"**[View on OpenStreetMap ↗]({p.get('osm_url','')})**  ·  GPS: `{p.get('gps_coordinates','')}`"
             )
 
-            with st.expander("▼  Full Signal Details — click to expand"):
+            with st.expander("▼  Full Signal Details", expanded=True):
                 detail_rows = []
                 for sm in SIGNAL_META:
                     if sm["key"] not in active_keys:
