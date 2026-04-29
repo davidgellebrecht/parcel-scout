@@ -2380,9 +2380,9 @@ else:
                     is_proxy   = sm.get("proxy", False)
                     detail_rows.append({
                         "Signal":       sm["label"],
-                        "Fired":        "✓" if fired_flag else "—",
-                        "Data Quality": "⚡ proxy" if is_proxy else "authoritative",
-                        "Detail":       str(p.get(detail_key, "")),
+                        "Fired":        "✓" if fired_flag else "",
+                        "Data Quality": ("⚡ proxy" if is_proxy else "authoritative") if fired_flag else "",
+                        "Detail":       str(p.get(detail_key, "")) if fired_flag else "",
                     })
                 st.dataframe(
                     pd.DataFrame(detail_rows),
