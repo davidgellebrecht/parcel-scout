@@ -122,7 +122,7 @@ def fetch_news_acquisitions(
     t0 = _time.monotonic()
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=user_prompt,
             config=genai_types.GenerateContentConfig(
                 system_instruction=_GEMINI_SYSTEM_PROMPT,
@@ -134,14 +134,14 @@ def fetch_news_acquisitions(
         status = 200
     except Exception as exc:
         storage.log_api_call(
-            api="gemini", endpoint="generate_content:gemini-2.0-flash",
+            api="gemini", endpoint="generate_content:gemini-2.5-flash",
             status=0, cost_usd=0.0, quota_units=1.0, cached=False,
             duration_ms=int((_time.monotonic() - t0) * 1000),
         )
         return [{"error": f"Gemini call failed: {exc}"}]
 
     storage.log_api_call(
-        api="gemini", endpoint="generate_content:gemini-2.0-flash",
+        api="gemini", endpoint="generate_content:gemini-2.5-flash",
         status=status, cost_usd=0.0, quota_units=1.0, cached=False,
         duration_ms=int((_time.monotonic() - t0) * 1000),
     )
