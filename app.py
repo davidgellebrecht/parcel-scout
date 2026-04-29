@@ -1807,12 +1807,19 @@ if demo_btn or demo_refresh_btn:
     st.session_state["filter_agricultural_land"]     = True
     st.session_state["filter_min_square_footage"]    = True
     st.session_state["filter_historical_designation"] = True
+    # All free GROUP 2 signals on — matches the snapshot generator config.
     st.session_state["sig_g2_premium_wine_zone"]  = True
-    st.session_state["sig_g2_distress_signal"]    = False
-    st.session_state["sig_g2_succession_signal"]  = False
-    st.session_state["sig_g2_lodging_overlay"]    = False
-    st.session_state["layer_layer_napa_neighbor_signal"]  = True
-    st.session_state["layer_layer_digital_ghost_signal"]  = False
+    st.session_state["sig_g2_distress_signal"]    = True
+    st.session_state["sig_g2_succession_signal"]  = True
+    st.session_state["sig_g2_lodging_overlay"]    = True
+    # All free layers on, every paid layer off.
+    st.session_state["layer_layer_napa_neighbor_signal"]       = True
+    st.session_state["layer_layer_digital_ghost_signal"]       = True
+    st.session_state["layer_layer_succession_stress_signal"]   = True
+    st.session_state["layer_layer_elevation_aspect_signal"]    = True
+    st.session_state["layer_layer_road_access_signal"]         = True
+    st.session_state["layer_layer_water_access_signal"]        = True
+    st.session_state["layer_layer_listing_check_signal"]       = True
     st.session_state["layer_layer_satellite_neglect_signal"]   = False
     st.session_state["layer_layer_permit_paralysis_signal"]    = False
     st.session_state["layer_layer_zoning_alchemy_signal"]      = False

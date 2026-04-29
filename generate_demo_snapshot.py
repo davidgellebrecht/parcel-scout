@@ -29,10 +29,13 @@ from scout import (
     fetch_airports,
     fetch_historic_sites,
     fetch_agricultural_parcels,
+    fetch_distress_elements,
+    fetch_named_estates,
+    fetch_tourism_nodes,
     filter_parcels,
     annotate_group2,
 )
-from rank import run_all_layers
+from rank import run_all_layers, score_parcel, ALL_SIGNAL_KEYS
 
 
 # ── Demo config — mirror app.py's demo button ─────────────────────────────────
@@ -47,15 +50,22 @@ config.FILTERS["agricultural_land"]       = True
 config.FILTERS["min_square_footage"]      = True
 config.FILTERS["historical_designation"]  = True
 
+# All free GROUP 2 signals on — full free-tier comparison for the demo.
 config.GROUP2["premium_wine_zone"] = True
-config.GROUP2["distress_signal"]   = False
-config.GROUP2["succession_signal"] = False
-config.GROUP2["lodging_overlay"]   = False
+config.GROUP2["distress_signal"]   = True
+config.GROUP2["succession_signal"] = True
+config.GROUP2["lodging_overlay"]   = True
 
-# Layers — only Napa Neighbor on, like the demo
+# All free layers on; every paid layer off.
+FREE_LAYERS = {
+    "napa_neighbor", "digital_ghost", "succession_stress",
+    "elevation_aspect", "road_access", "water_access", "listing_check",
+}
 for k in config.LAYERS:
-    config.LAYERS[k] = False
-config.LAYERS["napa_neighbor"] = True
+    config.LAYERS[k] = (k in FREE_LAYERS)
+
+# Demo cap — keep only the top N parcels by opportunity_score.
+TOP_N = 3
 
 
 def main() -> int:
@@ -100,11 +110,33 @@ def main() -> int:
         print("  ⚠ Zero parcels after filtering — refusing to save snapshot.")
         return 1
 
-    print("→ Annotating Group 2 signals…")
-    parcels = annotate_group2(parcels, [], [], [])
+    print("→ Fetching distress / estate / tourism overlays…")
+    distress  = fetch_distress_elements()
+    estates   = fetch_named_estates()
+    tourism   = fetch_tourism_nodes()
+    print(
+        f"  ✓ {len(distress):,} distress  |  "
+        f"{len(estates):,} estate(s)  |  {len(tourism):,} tourism node(s)"
+    )
 
-    print("→ Running acquisition layers…")
+    print("→ Annotating Group 2 signals…")
+    parcels = annotate_group2(parcels, distress, estates, tourism)
+
+    print("→ Running acquisition layers (every free layer)…")
     parcels = run_all_layers(parcels)
+
+    # run_all_layers sets per-signal flags but not opportunity_score.
+    # Compute score + sort manually before slicing.
+    for p in parcels:
+        p["opportunity_score"] = score_parcel(p)
+        p["signals_fired"]     = sum(1 for k in ALL_SIGNAL_KEYS if p.get(k))
+    parcels.sort(key=lambda x: x["opportunity_score"], reverse=True)
+
+    parcels = parcels[:TOP_N]
+    print(f"→ Keeping top {len(parcels)} parcel(s) by opportunity_score:")
+    for i, p in enumerate(parcels, 1):
+        print(f"   {i}. score={p.get('opportunity_score', 0):.0f}  "
+              f"{p.get('name') or p.get('gps_coordinates', '?')}")
 
     out = {
         "parcels":   parcels,
