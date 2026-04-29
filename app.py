@@ -2384,16 +2384,41 @@ else:
                         "Data Quality": ("⚡ proxy" if is_proxy else "authoritative") if fired_flag else "",
                         "Detail":       str(p.get(detail_key, "")) if fired_flag else "",
                     })
-                st.dataframe(
-                    pd.DataFrame(detail_rows),
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Signal":       st.column_config.TextColumn(width="medium"),
-                        "Fired":        st.column_config.TextColumn(width="small"),
-                        "Data Quality": st.column_config.TextColumn(width="small"),
-                        "Detail":       st.column_config.TextColumn(width="large"),
-                    },
+                # Render as plain HTML in a horizontally-scrollable div so the
+                # full Detail text is always readable (st.dataframe truncates
+                # cells at column width even with horizontal scroll enabled).
+                def _esc(s: str) -> str:
+                    return (str(s)
+                            .replace("&", "&amp;").replace("<", "&lt;")
+                            .replace(">", "&gt;"))
+                _rows_html = "".join(
+                    f"<tr>"
+                    f"<td style='padding:0.45rem 0.8rem;border-bottom:1px solid var(--border);"
+                    f"white-space:nowrap;'>{_esc(r['Signal'])}</td>"
+                    f"<td style='padding:0.45rem 0.8rem;border-bottom:1px solid var(--border);"
+                    f"text-align:center;'>{_esc(r['Fired'])}</td>"
+                    f"<td style='padding:0.45rem 0.8rem;border-bottom:1px solid var(--border);"
+                    f"white-space:nowrap;'>{_esc(r['Data Quality'])}</td>"
+                    f"<td style='padding:0.45rem 0.8rem;border-bottom:1px solid var(--border);'>"
+                    f"{_esc(r['Detail'])}</td>"
+                    f"</tr>"
+                    for r in detail_rows
+                )
+                st.markdown(
+                    f"<div style='overflow-x:auto;width:100%;'>"
+                    f"<table style='border-collapse:collapse;width:100%;"
+                    f"font-family:var(--sans);font-size:0.82rem;"
+                    f"color:var(--text);'>"
+                    f"<thead><tr style='background:var(--surface-low);"
+                    f"border-bottom:1px solid var(--border);'>"
+                    f"<th style='padding:0.5rem 0.8rem;text-align:left;'>Signal</th>"
+                    f"<th style='padding:0.5rem 0.8rem;text-align:center;'>Fired</th>"
+                    f"<th style='padding:0.5rem 0.8rem;text-align:left;'>Data Quality</th>"
+                    f"<th style='padding:0.5rem 0.8rem;text-align:left;'>Detail</th>"
+                    f"</tr></thead>"
+                    f"<tbody>{_rows_html}</tbody>"
+                    f"</table></div>",
+                    unsafe_allow_html=True,
                 )
                 if any(sm.get("proxy") for sm in SIGNAL_META if sm["key"] in active_keys):
                     st.caption(
